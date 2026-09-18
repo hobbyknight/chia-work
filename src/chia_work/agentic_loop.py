@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any
 
+from .actions import TypedAction
 from .gemini_agent import GeminiTypedActionAgent
 from .runner import ActionExecutor, RunResult, run_action
 from .safety import Decision
@@ -15,6 +17,17 @@ class AgenticLoopResult:
     attempts: list[dict[str, Any]]
 
 
+def _sum_usage(attempts: list[dict[str, Any]]) -> dict[str, int]:
+    totals: dict[str, int] = {}
+    for attempt in attempts:
+        usage = attempt.get("agent_usage") or {}
+        for key, value in usage.items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            totals[key] = totals.get(key, 0) + int(value)
+    return totals
+
+
 def run_agentic_task(
     task: str,
     *,
@@ -23,12 +36,17 @@ def run_agentic_task(
     executor: ActionExecutor,
     agent: GeminiTypedActionAgent | None = None,
     max_retries: int = 2,
+    initial_action: TypedAction | None = None,
 ) -> AgenticLoopResult:
-    """Execute one Gemini-driven task under an explicit U0-S4 variant.
+    """Execute one task under an explicit U0-S4 variant.
 
-    Only S4 retries. Safety feedback and post-execution verification failures
-    are supplied to Gemini as context for the next proposal. Every attempt is
-    retained for recovery-rate and retry-count analysis.
+    With ``initial_action=None`` every proposal comes from Gemini. Controlled
+    recovery experiments may supply one frozen ``initial_action`` so S3 and S4
+    receive exactly the same seeded failure; only S4 is allowed to ask Gemini
+    for a corrected action afterward.
+
+    Safety feedback and post-execution verification failures are supplied to
+    Gemini as context for the next proposal. Every attempt is retained.
     """
     spec = get_variant(variant)
     agent = agent or GeminiTypedActionAgent()
@@ -36,13 +54,25 @@ def run_agentic_task(
     context_parts: list[str] = []
     attempts: list[dict[str, Any]] = []
     final_result: RunResult | None = None
+    task_started = time.perf_counter()
 
     for attempt_index in range(max_retries + 1):
         context = "\n\n".join(context_parts)
-        proposal = agent.propose(task, context=context)
+        proposal = None
+        proposal_elapsed = 0.0
+
+        if initial_action is not None and attempt_index == 0:
+            action = initial_action
+            action_source = "controlled_seed"
+        else:
+            proposal_started = time.perf_counter()
+            proposal = agent.propose(task, context=context)
+            proposal_elapsed = time.perf_counter() - proposal_started
+            action = proposal.action
+            action_source = "gemini"
 
         result = run_action(
-            proposal.action,
+            action,
             variant=variant,
             task_id=task_id,
             safety_enabled=spec.safety_enabled,
@@ -52,21 +82,31 @@ def run_agentic_task(
         )
         record = result.record
         record["retry_count"] = attempt_index
-        record["agent"] = {
-            "provider": "gemini",
-            "model": proposal.model,
-            "rationale": proposal.rationale,
-            "usage": proposal.usage,
-            "raw_structured_response": proposal.raw_text,
-        }
+
+        if proposal is not None:
+            record["agent"] = {
+                "provider": "gemini",
+                "model": proposal.model,
+                "rationale": proposal.rationale,
+                "usage": proposal.usage,
+                "raw_structured_response": proposal.raw_text,
+                "proposal_wall_time_seconds": proposal_elapsed,
+            }
 
         attempt_summary = {
             "attempt": attempt_index,
-            "action": proposal.action.to_dict(),
+            "action_source": action_source,
+            "action": action.to_dict(),
             "safety_decision": record["safety_decision"],
             "safety_reason": record["safety_reason"],
+            "executed": record["executed"],
             "verification": record["verification"],
             "tool_result": record["tool_result"],
+            "action_wall_time_seconds": record["action_wall_time_seconds"],
+            "executor_wall_time_seconds": record["executor_wall_time_seconds"],
+            "agent_wall_time_seconds": proposal_elapsed,
+            "agent_model": None if proposal is None else proposal.model,
+            "agent_usage": {} if proposal is None else proposal.usage,
         }
         attempts.append(attempt_summary)
         final_result = result
@@ -101,16 +141,32 @@ def run_agentic_task(
             )
 
     assert final_result is not None
-    final_result.record["attempt_history"] = attempts
-    final_result.record["retry_count"] = max(0, len(attempts) - 1)
-    final_result.record["recovery_enabled"] = spec.recovery_enabled
-    final_result.record["recovered"] = bool(
+    final_record = final_result.record
+    final_record["attempt_history"] = attempts
+    final_record["retry_count"] = max(0, len(attempts) - 1)
+    final_record["recovery_enabled"] = spec.recovery_enabled
+    final_record["recovered"] = bool(
         spec.recovery_enabled
         and len(attempts) > 1
-        and final_result.record.get("safety_decision") == Decision.ALLOW.value
+        and final_record.get("safety_decision") == Decision.ALLOW.value
         and (
             not spec.verification_enabled
-            or final_result.record.get("verification") == "PASS"
+            or final_record.get("verification") == "PASS"
         )
     )
+    final_record["controlled_seed"] = initial_action is not None
+    final_record["agent_proposal_count"] = sum(
+        attempt["action_source"] == "gemini" for attempt in attempts
+    )
+    final_record["tool_call_count"] = sum(bool(attempt["executed"]) for attempt in attempts)
+    final_record["agent_wall_time_seconds"] = sum(
+        float(attempt["agent_wall_time_seconds"]) for attempt in attempts
+    )
+    final_record["executor_wall_time_seconds_total"] = sum(
+        float(attempt["executor_wall_time_seconds"]) for attempt in attempts
+    )
+    final_record["end_to_end_wall_time_seconds"] = time.perf_counter() - task_started
+    final_record["api_token_usage"] = _sum_usage(attempts)
+    final_record["api_cost_usd"] = None
+    final_record["compute_cost_usd"] = None
     return AgenticLoopResult(final=final_result, attempts=attempts)
