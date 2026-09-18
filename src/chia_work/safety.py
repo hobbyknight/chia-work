@@ -47,6 +47,13 @@ class SafetyGate:
     def __init__(self, allowed_kinds: set[ActionKind] | None = None) -> None:
         self.allowed_kinds = allowed_kinds or set(self.DEFAULT_ALLOWED)
 
+    @staticmethod
+    def _int_param(action: TypedAction, name: str, default: int) -> int | None:
+        try:
+            return int(action.params.get(name, default))
+        except (TypeError, ValueError):
+            return None
+
     def _known_target_policy(self, action: TypedAction) -> SafetyDecision | None:
         if action.target == "chia-local-smoke":
             if action.kind != ActionKind.RUN_BENCHMARK:
@@ -75,16 +82,42 @@ class SafetyGate:
             chipyard_path = action.params.get("chipyard_path")
             if chipyard_path not in (None, "/home/ray/chipyard"):
                 return SafetyDecision(Decision.DENY, "unapproved Chipyard path")
-            try:
-                make_jobs = int(action.params.get("make_jobs", 16))
-                timeout_seconds = int(action.params.get("timeout_seconds", 3600))
-            except (TypeError, ValueError):
+            make_jobs = self._int_param(action, "make_jobs", 16)
+            timeout_seconds = self._int_param(action, "timeout_seconds", 3600)
+            if make_jobs is None or timeout_seconds is None:
                 return SafetyDecision(Decision.REPAIR, "make_jobs/timeout_seconds must be integers")
             if not 1 <= make_jobs <= 64:
                 return SafetyDecision(Decision.REPAIR, "make_jobs must be in [1, 64]")
             if not 60 <= timeout_seconds <= 7200:
                 return SafetyDecision(Decision.REPAIR, "timeout_seconds must be in [60, 7200]")
             return SafetyDecision(Decision.ALLOW, "known Gemmini build matches semantic policy")
+
+        if action.target == "gemmini-sanity-run":
+            if action.kind != ActionKind.RUN_BENCHMARK:
+                return SafetyDecision(Decision.REPAIR, "gemmini-sanity-run requires RUN_BENCHMARK")
+            if action.params.get("command") != "chia:GemminiSanity.run":
+                return SafetyDecision(
+                    Decision.DENY,
+                    "gemmini-sanity-run only permits the typed sanity pipeline",
+                )
+            if action.params.get("config", "GemminiRocketConfig") != "GemminiRocketConfig":
+                return SafetyDecision(Decision.DENY, "unapproved Gemmini sanity config")
+
+            make_jobs = self._int_param(action, "make_jobs", 16)
+            build_timeout = self._int_param(action, "build_timeout_seconds", 3600)
+            run_timeout = self._int_param(action, "run_timeout_seconds", 600)
+            max_cycles = self._int_param(action, "max_cycles", 2_000_000)
+            if None in (make_jobs, build_timeout, run_timeout, max_cycles):
+                return SafetyDecision(Decision.REPAIR, "sanity numeric parameters must be integers")
+            if not 1 <= make_jobs <= 64:
+                return SafetyDecision(Decision.REPAIR, "make_jobs must be in [1, 64]")
+            if not 60 <= build_timeout <= 7200:
+                return SafetyDecision(Decision.REPAIR, "build_timeout_seconds must be in [60, 7200]")
+            if not 30 <= run_timeout <= 1800:
+                return SafetyDecision(Decision.REPAIR, "run_timeout_seconds must be in [30, 1800]")
+            if not 10_000 <= max_cycles <= 20_000_000:
+                return SafetyDecision(Decision.REPAIR, "max_cycles outside approved sanity range")
+            return SafetyDecision(Decision.ALLOW, "known Gemmini sanity run matches semantic policy")
 
         return None
 
