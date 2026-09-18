@@ -1,13 +1,18 @@
 # CHECKPOINT
 
-Snapshot: 2026-09-18 — Gate A code path is complete through a real Gemmini accelerator workload; execution evidence is pending.
+Snapshot: 2026-09-18 — Gate A.1 is proven; Gate A.2 contract/preflight is proven; real Gemmini build execution is the current blocker.
 
-## Confirmed in-tree
+## Confirmed by execution evidence
 
-- Upstream CHIA is pinned to commit `16c35e92aaaf9511c6453bf94cd5cf589698f4e3`; bootstrap requires Python 3.10.19.
-- `ChiaLocalExecutor` provides a real `@ChiaFunction`/Ray round-trip proof.
+- Upstream CHIA is pinned to commit `16c35e92aaaf9511c6453bf94cd5cf589698f4e3`; Gate A workflows use Python 3.10.19.
+- Gate A.1 real CHIA smoke passes in GitHub Actions through `@ChiaFunction` + Ray, with `mocked=false`, `verification=PASS`, and uploaded evidence.
+- Regular CI passes unit tests, local smoke, dry-run harness, safety challenge invariants, and shell entrypoint syntax validation.
+- Gate A.2 preflight passes in GitHub Actions and uploads evidence. It validates the real CHIA cluster parser, worker resource topology, SafetyGate ALLOW decision, `GemminiRocketConfig`, and upstream `ChiselBuildNode.build` resource contract.
+
+## Confirmed in-tree but NOT yet proven by real hardware execution
+
 - `GeminiTypedActionAgent` uses a constrained structured-output schema; arbitrary parameter keys are not accepted.
-- `ChiselBuildNode` builds `GemminiRocketConfig` through CHIA.
+- `GemminiChiselBuildExecutor` dispatches official `ChiselBuildNode` for `GemminiRocketConfig` and is explicitly non-mocked.
 - H0 composes `ChiselBuildNode` + `RiscvBuildNode` + `VerilatorRunNode` and checks a marker.
 - H1 uses upstream Gemmini `mvin_mvout-baremetal`, which exercises Gemmini memory movement and self-checks matrix equality.
 - U0/S1/S2/S3/S4 semantics are explicit in `src/chia_work/variants.py`.
@@ -19,10 +24,21 @@ Snapshot: 2026-09-18 — Gate A code path is complete through a real Gemmini acc
 
 ## NOT yet proven by execution evidence
 
-- `make real-chia` has not yet produced a successful local `mocked=false` artifact observed by us.
+- A real `GemminiRocketConfig` Verilator simulator artifact has not yet been built and observed by us.
 - H1 `mvin_mvout` has not yet produced a successful real Verilator result observed by us.
 - Gemini → SafetyGate → H1 has not yet produced a successful full agentic accelerator artifact observed by us.
 - Therefore **Gate A is OPEN and paper result cells remain empty**.
+
+## Current isolation gates
+
+```text
+A.0 repo/control plane             PASS
+A.1 real CHIA @ChiaFunction       PASS (mocked=false evidence)
+A.2 preflight/contract             PASS
+A.2 real Gemmini simulator build  PENDING HOST EXECUTION
+A.2b H1 mvin_mvout                PENDING
+A.3 Gemini -> Safety -> H1         PENDING
+```
 
 ## Gate A pass condition
 
@@ -42,51 +58,29 @@ Gemini
 
 Isolation checkpoints should be run first so failures can be localized.
 
-## Exact execution order
+## Exact next execution order
 
 ```bash
-# No external runtime needed
-make test
-make safety-challenges
-
-# Real CHIA
+# Suitable Linux host with Docker + non-interactive self-SSH
 bash scripts/bootstrap_chia.sh
-make real-chia
+bash scripts/preflight_gate_a2_host.sh
+bash scripts/run_gate_a2_build.sh
 
-# Real Gemini; funded GCP/ADC preferred
-# Export values described in .env.example
-make real-agent
-
-# Real hardware cluster
-export THIS_MACHINE=$(hostname -I | awk '{print $1}')
-export CHIA_WORK_DIR=$(pwd)
-export USER=$(id -un)
-make gemmini-up
-make capture-env
-
-# Isolation
-make real-gemmini
+# After A.2 real build passes
 make real-gemmini-sanity
-
-# Primary accelerator evidence
 make real-gemmini-mvin-mvout
+
+# After H1 passes
 make real-agent-gemmini-mvin-mvout
-
-# Pilot once H1 passes
 make hardware-pilot
-
-make gemmini-down
 ```
 
 ## Expected evidence files
 
 ```text
-results/environment.json
-results/safety-challenges.jsonl
-results/safety-challenges-summary.json
-results/real-chia-smoke.jsonl
-results/real-gemini-chia-smoke.jsonl
+results/gate-a2-host-preflight.json
 results/real-gemmini-build.jsonl
+logs/gate-a2-gemmini-build.log
 results/real-gemmini-sanity.jsonl
 results/real-gemmini-mvin-mvout.jsonl
 results/real-gemini-gemmini-mvin-mvout.jsonl
@@ -96,9 +90,9 @@ results/hardware-pilot.jsonl
 
 Real hardware/agent evidence must contain `mocked=false`. Unsafe safety-challenge cases are different: they are explicitly `counterfactual_only=true`, `executed=false`.
 
-## Environment limitation observed during this work
+## Current external requirement
 
-The assistant's separate execution container could not download Python/CHIA because outbound DNS was unavailable. This is not project evidence and not a project failure. A development machine, suitable GitHub runner, or GCP environment with Docker/Ray must create the real artifacts.
+The remaining A.2 proof requires a suitable Linux host/VM with Docker, non-interactive SSH to the CHIA head/worker address, access to the CHIA GHCR images, and enough disk/RAM for Chipyard/Verilator. GitHub hosted CI is used only for the cheap A.2 contract preflight; it is not being treated as evidence of a real Gemmini build.
 
 ## Next after first H1 pass
 
