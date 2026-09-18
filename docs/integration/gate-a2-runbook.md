@@ -38,7 +38,7 @@ Preflight PASS **không đồng nghĩa Gate A.2 PASS**. Nó chỉ chứng minh c
 Host chạy build cần:
 
 1. repo `chia-work` đã clone;
-2. `./scripts/bootstrap_chia.sh` đã hoàn thành;
+2. `bash scripts/bootstrap_chia.sh` đã hoàn thành;
 3. Docker daemon hoạt động với user hiện tại;
 4. SSH public-key authentication từ host tới chính `THIS_MACHINE` hoạt động không cần tương tác;
 5. truy cập được GHCR để lấy các CHIA images;
@@ -49,7 +49,7 @@ Không hard-code credential vào repo.
 ## Preflight host
 
 ```bash
-./scripts/preflight_gate_a2_host.sh
+bash scripts/preflight_gate_a2_host.sh
 ```
 
 Script sẽ kiểm tra Python 3.10.19, `git/docker/ssh/chia/ray`, Docker daemon, self-SSH, cluster contract và manifest của ba image CHIA. Nó cũng in free disk/RAM để quyết định host có phù hợp hay không.
@@ -57,13 +57,13 @@ Script sẽ kiểm tra Python 3.10.19, `git/docker/ssh/chia/ray`, Docker daemon,
 ## Chạy Gate A.2
 
 ```bash
-./scripts/run_gate_a2_build.sh
+bash scripts/run_gate_a2_build.sh
 ```
 
 Có thể giảm/tăng tài nguyên bằng environment variables trong giới hạn SafetyGate:
 
 ```bash
-MAKE_JOBS=8 BUILD_TIMEOUT_SECONDS=7200 ./scripts/run_gate_a2_build.sh
+MAKE_JOBS=8 BUILD_TIMEOUT_SECONDS=7200 bash scripts/run_gate_a2_build.sh
 ```
 
 Script tự:
