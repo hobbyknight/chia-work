@@ -49,11 +49,16 @@ def run_action(
     gate = gate or SafetyGate()
     executor = executor or DryRunExecutor()
     started = time.perf_counter()
+
+    gate_started = time.perf_counter()
     decision = gate.evaluate(action) if safety_enabled else None
+    safety_gate_elapsed = time.perf_counter() - gate_started
 
     allowed = decision is None or decision.decision == Decision.ALLOW
     tool_result: dict[str, Any] | None = None
+    executor_elapsed = 0.0
     if allowed:
+        executor_started = time.perf_counter()
         try:
             tool_result = executor.execute(action)
         except Exception as exc:  # preserve failed real runs as experiment evidence
@@ -65,6 +70,8 @@ def run_action(
                 "error_type": type(exc).__name__,
                 "error_message": str(exc),
             }
+        finally:
+            executor_elapsed = time.perf_counter() - executor_started
 
     elapsed = time.perf_counter() - started
     if not verification_enabled:
@@ -77,7 +84,7 @@ def run_action(
         verification = "FAIL"
 
     record = {
-        "schema_version": 1,
+        "schema_version": 2,
         "run_id": str(uuid.uuid4()),
         "timestamp_utc": utc_now_iso(),
         "variant": variant,
@@ -86,11 +93,22 @@ def run_action(
         "safety_enabled": safety_enabled,
         "safety_decision": None if decision is None else decision.decision.value,
         "safety_reason": None if decision is None else decision.reason,
+        "executed": tool_result is not None,
+        "backend": None if tool_result is None else tool_result.get("backend"),
         "tool_result": tool_result,
         "verification_enabled": verification_enabled,
         "verification": verification,
         "retry_count": 0,
+        # Kept for backward compatibility. This covers SafetyGate + executor,
+        # not model proposal latency.
         "wall_time_seconds": elapsed,
+        "action_wall_time_seconds": elapsed,
+        "safety_gate_wall_time_seconds": safety_gate_elapsed,
+        "executor_wall_time_seconds": executor_elapsed,
+        "tool_call_count": 1 if tool_result is not None else 0,
         "mocked": bool(getattr(executor, "mocked", True)),
+        # Never estimate monetary cost inside the execution harness.
+        "api_cost_usd": None,
+        "compute_cost_usd": None,
     }
     return RunResult(record)
