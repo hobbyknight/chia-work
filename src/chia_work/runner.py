@@ -53,7 +53,17 @@ def run_action(
     allowed = decision is None or decision.decision == Decision.ALLOW
     tool_result: dict[str, Any] | None = None
     if allowed:
-        tool_result = executor.execute(action)
+        try:
+            tool_result = executor.execute(action)
+        except Exception as exc:  # preserve failed real runs as experiment evidence
+            tool_result = {
+                "backend": type(executor).__name__,
+                "status": "error",
+                "exit_code": 1,
+                "verified": False,
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            }
 
     elapsed = time.perf_counter() - started
     if tool_result is None:
