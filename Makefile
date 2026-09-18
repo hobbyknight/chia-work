@@ -1,4 +1,4 @@
-.PHONY: smoke test experiments real-chia real-agent gemmini-up real-gemmini real-agent-gemmini gemmini-down status
+.PHONY: smoke test experiments real-chia real-agent gemmini-up real-gemmini real-agent-gemmini real-gemmini-sanity real-agent-gemmini-sanity gemmini-down status
 
 smoke:
 	PYTHONPATH=src python scripts/smoke_test.py
@@ -23,6 +23,12 @@ real-gemmini:
 
 real-agent-gemmini:
 	chia job submit --working-dir . -- python scripts/real_gemini_gemmini_build.py
+
+real-gemmini-sanity:
+	chia job submit --working-dir . -- python scripts/real_gemmini_sanity.py
+
+real-agent-gemmini-sanity:
+	chia job submit --working-dir . -- python scripts/real_gemini_gemmini_sanity.py
 
 gemmini-down:
 	chia down configs/chia-gemmini-local.yaml
