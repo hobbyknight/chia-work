@@ -14,11 +14,16 @@ fi
 
 mkdir -p external
 if [[ ! -d external/chia/.git ]]; then
-  git clone https://github.com/ucb-bar/chia external/chia
+  git clone --no-recurse-submodules https://github.com/ucb-bar/chia external/chia
 fi
 
+# Keep the upstream checkout reproducible while deliberately avoiding recursive
+# submodule initialization. At the pinned CHIA revision, examples/benchmarks
+# references an unavailable commit; CHIA core + Ray do not need that example
+# submodule for Gate A.1.
 git -C external/chia fetch origin "${CHIA_COMMIT}" --depth=1
 git -C external/chia checkout --detach "${CHIA_COMMIT}"
+git -C external/chia submodule deinit -f --all >/dev/null 2>&1 || true
 
 ${PYTHON_BIN} -m venv .venv
 source .venv/bin/activate
@@ -27,9 +32,13 @@ python -m pip install -e external/chia
 python -m pip install -e .
 
 python - <<'PY'
-from chia.base.ChiaFunction import ChiaFunction  # noqa: F401
-print("CHIA import: PASS")
+from chia.base.ChiaFunction import ChiaFunction, get  # noqa: F401
+import ray
+
+print("CHIA core imports: PASS")
+print("Ray version:", ray.__version__)
 PY
 
 echo "Bootstrap complete. Pinned upstream CHIA commit: ${CHIA_COMMIT}"
+echo "Submodules intentionally not initialized for Gate A.1."
 echo "Next: python scripts/real_chia_smoke.py"
