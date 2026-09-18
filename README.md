@@ -2,106 +2,137 @@
 
 Private working repository for the A³ CHIA Hackathon 2026.
 
-> Current phase (2026-09-18): recovery sprint before the funded compute window. The repository now contains a real CHIA smoke path and a real CHIA → Chipyard → Gemmini build path; execution evidence is the remaining Gate A requirement.
+> **Current phase — Sep 18:** the real CHIA/Gemmini paths and U0–S4 experiment harness are implemented. Gate A remains open until successful `mocked=false` execution artifacts are captured.
 
 ## Research thesis
 
-Agentic HW/SW co-design becomes risky when an LLM can directly invoke build, simulation, configuration, and shell-like tools. This project evaluates whether a lightweight `SafetyGate` around typed actions can prevent unsafe or invalid tool calls while preserving task success and enabling recovery.
+Agentic HW/SW co-design becomes risky when an LLM can directly invoke build, simulation, configuration, and shell-like tools. This project evaluates whether a lightweight SafeAgent layer—schema-constrained typed actions, pre-execution policy, post-execution verification, and bounded feedback repair—can prevent unsafe/invalid actions while preserving hardware-task success.
 
 ## Target loop
 
 ```mermaid
 flowchart LR
-    A[Task / Prompt] --> B[Gemini Agent]
+    A[Task / Prompt] --> B[Gemini]
     B --> C[Typed Action]
     C --> D{SafetyGate}
-    D -->|ALLOW| E[CHIA Tool / Gemmini Tool]
-    D -->|DENY| B
-    D -->|REPAIR| B
-    E --> F[Build / Simulate / Measure]
-    F --> G[Post-execution Verification]
+    D -->|ALLOW| E[CHIA]
+    D -->|DENY / REPAIR| B
+    E --> F[Chipyard / Gemmini / Verilator]
+    F --> G{Verification}
     G -->|pass| H[Result]
-    G -->|fail| B
-    H --> I[Structured Log + Metrics]
+    G -->|fail in S4| B
+    H --> I[JSONL + Metrics + Provenance]
 ```
 
-## Internal milestones
+## Exact ablations
 
-| Date | Gate | Required output |
-|---|---|---|
-| Sep 18 | Gate A | Non-mocked CHIA smoke + real Gemmini build path wired; capture first real evidence |
-| Sep 19 | Experiment freeze | U0/S1/S2/S3/S4 matrix, metrics, fault cases |
-| Sep 20 | Gate B | Reproducible setup, GCP credential swap ready, paper skeleton mostly written |
-| Sep 21 | Compute day 1 | Migration smoke test + baseline runs |
-| Sep 22 | Compute day 2 | Main SafeAgent runs + repetitions |
-| Sep 23 | Compute day 3 | Missing cells, ablations, reruns |
-| Sep 24 AoE | Submission | 4-page PDF + open-source release + results + HotCRP |
+| Variant | Generic pre-check | Semantic typed policy | Post-verification used by system | Repair/retry |
+|---|---:|---:|---:|---:|
+| U0 | No | No | No | No |
+| S1 | Yes | No | No | No |
+| S2 | Yes | Yes | No | No |
+| S3 | Yes | Yes | Yes | No |
+| S4 | Yes | Yes | Yes | Yes |
+
+Source of truth: `src/chia_work/variants.py`.
+
+## Hardware workloads
+
+### H1 — primary accelerator workload
+
+`mvin_mvout` from upstream Gemmini RoCC tests executes real Gemmini `mvin`/`mvout` operations, moving matrices through the accelerator scratchpad and comparing the result against the input. The upstream program exits non-zero on mismatch, so simulator exit code 0 is the objective pass oracle.
+
+Implementation: `src/chia_work/gemmini_mvin_mvout.py`.
+
+### H0 — bring-up only
+
+A small bare-metal marker program validates CHIA → build → compile → Verilator plumbing. It does **not** exercise Gemmini instructions and is not a primary paper workload.
+
+Implementation: `src/chia_work/gemmini_sanity.py`.
 
 ## Start here
 
 ```bash
-# 1) Read project control-plane
+# Control plane
 cat CURRENT-PLAN.md
 cat CHECKPOINT.md
 cat PACKAGE-STATUS.md
 
-# 2) Local scaffold checks (no CHIA required)
+# Local logic checks: no CHIA/GCP required
 make test
 make smoke
+make safety-challenges
 
-# 3) Bootstrap the pinned official CHIA revision (Python 3.10.19)
+# Install the pinned CHIA source with Python 3.10.19
 bash scripts/bootstrap_chia.sh
 
-# 4) Gate A.1: real CHIA/Ray round trip; must write mocked=false
+# Gate A.1 — real CHIA/Ray round trip
 make real-chia
 
-# 5) Gate A.2 prerequisites: Linux + Docker + SSH-to-self
+# Configure Gemini: funded GCP/ADC preferred; see .env.example
+# Export the populated environment variables before the agent tests.
+make real-agent
+
+# Start a single-host CHIA hardware cluster: Linux + Docker + SSH-to-self required
 export THIS_MACHINE=$(hostname -I | awk '{print $1}')
 export CHIA_WORK_DIR=$(pwd)
 export USER=$(id -un)
 make gemmini-up
 
-# 6) Real CHIA → Chipyard → GemminiRocketConfig Verilator build
-make real-gemmini
+# Capture actual source/package/Docker provenance
+make capture-env
 
-# 7) Tear the local CHIA cluster down when done
+# Isolated hardware bring-up
+make real-gemmini
+make real-gemmini-sanity
+
+# Primary accelerator workload
+make real-gemmini-mvin-mvout
+make real-agent-gemmini-mvin-mvout
+
+# U0–S4 pilot; first build is a warm-up excluded from comparative timing
+make hardware-pilot
+
+# Tear down when finished
 make gemmini-down
 ```
 
-Dry-run outputs are explicitly marked `mocked=true` and **must never be used as paper results**. `scripts/summarize_results.py` rejects mocked rows by default.
+## Evidence rules
 
-## Gate A implementation now in-tree
+- Dry-run rows are always `mocked=true` and may never populate paper results.
+- Counterfactual safety challenge rows have `executed=false`; unsafe U0 actions are never actually launched.
+- Real hardware evidence must have `mocked=false`.
+- H1 success requires the upstream self-checking `mvin_mvout` workload to return exit code 0.
+- `scripts/summarize_results.py` rejects mocked rows by default.
+- Gate A stays open until real execution artifacts exist; implementation alone is not a pass.
 
-- `src/chia_work/chia_adapter.py`: real `@ChiaFunction`/Ray dispatch with SHA round-trip verification.
-- `scripts/real_chia_smoke.py`: writes the first eligible non-mocked CHIA record when execution succeeds.
-- `src/chia_work/gemmini_adapter.py`: calls upstream `ChiselBuildNode.build` with `GemminiRocketConfig`.
-- `configs/chia-gemmini-local.yaml`: single-host CHIA cluster template with `chipyard` and `verilator_run` workers.
-- `scripts/real_gemmini_build.py`: records the real simulator build result, binary size and SHA256.
-- `.github/workflows/gate-a-real-chia.yml`: clean CI smoke against pinned CHIA commit `16c35e92aaaf9511c6453bf94cd5cf589698f4e3`.
-
-## Repository map
+## Key files
 
 ```text
-.
-├── AGENTS.md                    # rules for ChatGPT/Codex/other assistants
-├── CURRENT-PLAN.md              # current execution plan
-├── CHECKPOINT.md                # exact current state / next gate
-├── PACKAGE-STATUS.md            # file-by-file readiness
-├── configs/                     # experiment and CHIA cluster definitions; no secrets
-├── docs/
-│   ├── architecture/            # SafeAgent design
-│   ├── experiments/             # matrix + metrics
-│   ├── gcp/                     # funded-account migration runbook
-│   ├── hackathon/               # official requirements snapshot
-│   ├── integration/             # CHIA/Gemmini integration plan
-│   └── submission/              # HotCRP/release checklist
-├── paper/                       # 4-page paper outline
-├── scripts/                     # bootstrap, smoke, real CHIA/Gemmini entrypoints
-├── src/chia_work/               # typed actions, safety, logging, runner, adapters
-├── tests/                       # unit tests for local safety/runner logic
-├── logs/                        # generated logs (ignored except .gitkeep)
-└── results/                     # generated results (ignored except .gitkeep)
+CURRENT-PLAN.md                         sprint/deadline source of truth
+CHECKPOINT.md                           exact current gate
+PACKAGE-STATUS.md                       readiness by area
+configs/chia-gemmini-local.yaml         chipyard + riscv_build + verilator workers
+configs/safety-challenges.json          non-executing safety suite
+configs/hardware-pilot.json             real U0–S4 H1 pilot
+src/chia_work/gemini_agent.py           schema-constrained Gemini proposals
+src/chia_work/safety.py                 S1/S2+ policies
+src/chia_work/agentic_loop.py           S4 feedback/retry
+src/chia_work/gemmini_mvin_mvout.py     primary real accelerator executor
+scripts/capture_environment.py          source/package/image provenance
+scripts/run_real_hardware_pilot.py      cached U0–S4 real pilot
+paper/outline.md                         4-page paper scaffold
 ```
+
+## Internal milestones
+
+| Date | Required state |
+|---|---|
+| Sep 18 | Capture first real CHIA, H1, and agentic-H1 evidence |
+| Sep 19 | Run pilot; freeze variants, safety/recovery tasks, metrics, repetition plan |
+| Sep 20 | Clean-room reproduction, GCP swap rehearsal, paper sections 1–6, HotCRP registration |
+| Sep 21–23 | Funded compute batches and reruns |
+| Sep 24 AoE | 4-page PDF + public artifact/results + HotCRP submission |
 
 ## Official references
 
@@ -110,4 +141,4 @@ Dry-run outputs are explicitly marked `mocked=true` and **must never be used as 
 - Hackathon: https://agentic-arch.org/hackathon.html
 - HotCRP: https://a3-chia-hackathon-26.hotcrp.com/
 
-The official CHIA quickstart documents Python 3.10.19 for the supplied environment. The final hackathon artifact must be released publicly; this working repository is private for now and must be made public (or released to a public repository) before final submission.
+The working repository is private during development. The final artifact must be released publicly before submission. Never commit GCP/Gemini credentials or service-account material.
