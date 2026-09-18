@@ -9,6 +9,8 @@ jobs:
   real-chia-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CHIA_COMMIT: 16c35e92aaaf9511c6453bf94cd5cf589698f4e3
     steps:
       - uses: actions/checkout@v4
 
@@ -18,11 +20,28 @@ jobs:
           python-version: '3.10.19'
           cache: 'pip'
 
-      - name: Install pinned CHIA and harness
+      - name: Checkout pinned CHIA core without recursive submodules
+        run: |
+          git clone --no-recurse-submodules https://github.com/ucb-bar/chia external/chia
+          git -C external/chia fetch origin "$CHIA_COMMIT" --depth=1
+          git -C external/chia checkout --detach "$CHIA_COMMIT"
+          git -C external/chia submodule status || true
+          test "$(git -C external/chia rev-parse HEAD)" = "$CHIA_COMMIT"
+
+      - name: Install CHIA core and harness
         run: |
           python -m pip install --upgrade pip
-          python -m pip install 'git+https://github.com/ucb-bar/chia.git@16c35e92aaaf9511c6453bf94cd5cf589698f4e3'
+          python -m pip install -e external/chia
           python -m pip install -e .
+
+      - name: Verify CHIA core imports
+        run: |
+          python - <<'PY'
+          from chia.base.ChiaFunction import ChiaFunction, get  # noqa: F401
+          import ray
+          print('CHIA core imports: PASS')
+          print('Ray version:', ray.__version__)
+          PY
 
       - name: Run real CHIA smoke
         run: |
@@ -41,7 +60,9 @@ jobs:
           PY
 
       - name: Upload Gate A evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gate-a-real-chia-evidence
           path: results/ci-real-chia-smoke.jsonl
+          if-no-files-found: warn
