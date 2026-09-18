@@ -1,4 +1,4 @@
-.PHONY: smoke test experiments real-chia gemmini-up real-gemmini gemmini-down status
+.PHONY: smoke test experiments real-chia real-agent gemmini-up real-gemmini gemmini-down status
 
 smoke:
 	PYTHONPATH=src python scripts/smoke_test.py
@@ -11,6 +11,9 @@ experiments:
 
 real-chia:
 	PYTHONPATH=src python scripts/real_chia_smoke.py
+
+real-agent:
+	PYTHONPATH=src python scripts/real_gemini_chia_smoke.py
 
 gemmini-up:
 	chia up configs/chia-gemmini-local.yaml
