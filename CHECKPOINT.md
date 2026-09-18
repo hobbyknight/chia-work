@@ -1,70 +1,79 @@
 # CHECKPOINT
 
-Snapshot: 2026-09-18 Gate A implementation is wired through a real Gemmini simulator run; execution evidence is pending.
+Snapshot: 2026-09-18 — Gate A code path is complete through a real Gemmini accelerator workload; execution evidence is pending.
 
-## What is confirmed in-tree
+## Confirmed in-tree
 
-- Dedicated repo exists and is writable.
-- Short-term funded account has been confirmed for Sep 21–23; final deadline is Sep 24 AoE.
-- Typed actions, SafetyGate, structured JSONL logging, result schema, experiment matrix and dry-run harness exist.
-- Upstream CHIA is pinned to commit `16c35e92aaaf9511c6453bf94cd5cf589698f4e3`.
-- Gate A.1: `ChiaLocalExecutor` dispatches a real `@ChiaFunction` and verifies action SHA on return.
-- Gate A.2: `GemminiChiselBuildExecutor` calls upstream `ChiselBuildNode.build` for `GemminiRocketConfig`.
-- Gate A.3: `GeminiTypedActionAgent` uses schema-constrained Gemini output and can drive the real CHIA smoke.
-- Gate A.4: Gemini can propose the semantically constrained real Gemmini build action.
-- Gate A.5: `GemminiSanityRunExecutor` composes official CHIA `ChiselBuildNode`, `RiscvBuildNode`, and `VerilatorRunNode` to build the Gemmini SoC, compile a bare-metal ELF, execute it, and verify the marker `SAFEAGENT_GEMMINI_SANITY_PASS`.
-- Gate A.6: a full Gemini → TypedAction → SafetyGate → CHIA → Gemmini build/compile/run script exists.
-- Cluster config exposes `chipyard`, `riscv_build`, and `verilator_run` workers using official CHIA images.
-- SafetyGate has semantic policies for `chia-local-smoke`, `gemmini-verilator`, and `gemmini-sanity-run`, including action/config/resource-budget constraints.
-- Executor failures are preserved as structured non-mocked failed records instead of disappearing as exceptions.
+- Upstream CHIA is pinned to commit `16c35e92aaaf9511c6453bf94cd5cf589698f4e3`; bootstrap requires Python 3.10.19.
+- `ChiaLocalExecutor` provides a real `@ChiaFunction`/Ray round-trip proof.
+- `GeminiTypedActionAgent` uses a constrained structured-output schema; arbitrary parameter keys are not accepted.
+- `ChiselBuildNode` builds `GemminiRocketConfig` through CHIA.
+- H0 composes `ChiselBuildNode` + `RiscvBuildNode` + `VerilatorRunNode` and checks a marker.
+- H1 uses upstream Gemmini `mvin_mvout-baremetal`, which exercises Gemmini memory movement and self-checks matrix equality.
+- U0/S1/S2/S3/S4 semantics are explicit in `src/chia_work/variants.py`.
+- S4 feedback/retry is implemented in `src/chia_work/agentic_loop.py` with complete attempt history.
+- Counterfactual safety challenges never execute unsafe U0 actions.
+- Real hardware pilot performs a setup warm-up excluded from comparative timing, then U0–S4 on the same incremental/cached environment.
+- Environment capture records source revisions, Python/package versions and Docker IDs/digests.
+- Cluster config exposes `chipyard`, `riscv_build`, and `verilator_run` workers.
 
-## What is NOT yet proven by execution evidence
+## NOT yet proven by execution evidence
 
-- No successful `mocked=false` CHIA smoke record has yet been captured.
-- No successful `GemminiRocketConfig` Verilator build record has yet been captured.
-- No successful Gemmini simulator run record with the sanity marker has yet been captured.
-- No real Gemini API/GCP call has yet been captured from this repository.
-- Therefore no paper result is considered valid yet.
+- `make real-chia` has not yet produced a successful local `mocked=false` artifact observed by us.
+- H1 `mvin_mvout` has not yet produced a successful real Verilator result observed by us.
+- Gemini → SafetyGate → H1 has not yet produced a successful full agentic accelerator artifact observed by us.
+- Therefore **Gate A is OPEN and paper result cells remain empty**.
 
 ## Gate A pass condition
 
+Strongest required evidence:
+
 ```text
-Gemini/task driver
+Gemini
   → schema-constrained TypedAction
   → SafetyGate
-  → CHIA scheduling
-  → Chipyard Gemmini build
-  → RISC-V ELF build
-  → Verilator execution
-  → post-execution marker verification
-  → structured record with mocked=false
+  → CHIA
+  → GemminiRocketConfig simulator
+  → upstream mvin_mvout-baremetal
+  → VerilatorRunNode
+  → upstream self-checking exit code 0
+  → structured JSONL with mocked=false
 ```
 
-The strongest Gate A evidence is A.6. A.1 and A.5 are useful isolation checkpoints when debugging.
+Isolation checkpoints should be run first so failures can be localized.
 
 ## Exact execution order
 
 ```bash
+# No external runtime needed
 make test
+make safety-challenges
+
+# Real CHIA
 bash scripts/bootstrap_chia.sh
 make real-chia
 
-# Configure Gemini credentials: funded GCP ADC is preferred.
-cp .env.example .env
-# Export the populated values in .env using your shell/environment tooling.
+# Real Gemini; funded GCP/ADC preferred
+# Export values described in .env.example
 make real-agent
 
+# Real hardware cluster
 export THIS_MACHINE=$(hostname -I | awk '{print $1}')
 export CHIA_WORK_DIR=$(pwd)
 export USER=$(id -un)
 make gemmini-up
+make capture-env
 
-# Isolated hardware checks
+# Isolation
 make real-gemmini
 make real-gemmini-sanity
 
-# Full agentic hardware path
-make real-agent-gemmini-sanity
+# Primary accelerator evidence
+make real-gemmini-mvin-mvout
+make real-agent-gemmini-mvin-mvout
+
+# Pilot once H1 passes
+make hardware-pilot
 
 make gemmini-down
 ```
@@ -72,23 +81,28 @@ make gemmini-down
 ## Expected evidence files
 
 ```text
+results/environment.json
+results/safety-challenges.jsonl
+results/safety-challenges-summary.json
 results/real-chia-smoke.jsonl
 results/real-gemini-chia-smoke.jsonl
 results/real-gemmini-build.jsonl
 results/real-gemmini-sanity.jsonl
-results/real-gemini-gemmini-sanity.jsonl
+results/real-gemmini-mvin-mvout.jsonl
+results/real-gemini-gemmini-mvin-mvout.jsonl
+results/hardware-pilot-warmup.jsonl
+results/hardware-pilot.jsonl
 ```
 
-Every record intended as real evidence must contain `mocked=false`; successful runs must also have `verification=PASS`.
+Real hardware/agent evidence must contain `mocked=false`. Unsafe safety-challenge cases are different: they are explicitly `counterfactual_only=true`, `executed=false`.
 
-## Environment note
+## Environment limitation observed during this work
 
-An external validation attempt from the assistant runtime could not download Python 3.10.19 because that runtime has no outbound DNS. This does not count as a project failure and does not satisfy Gate A. GitHub Actions or the development/GCP environment must generate the execution evidence.
+The assistant's separate execution container could not download Python/CHIA because outbound DNS was unavailable. This is not project evidence and not a project failure. A development machine, suitable GitHub runner, or GCP environment with Docker/Ray must create the real artifacts.
 
-## Immediately after Gate A passes
+## Next after first H1 pass
 
-1. Freeze task/fault families for U0/S1/S2/S3/S4.
-2. Add deliberately invalid/unsafe proposals to quantify prevention and false rejection.
-3. Add retry/repair feedback from SafetyGate and post-execution failures back to Gemini.
-4. Replace the sanity ELF with actual Gemmini accelerator workloads for main results.
-5. Run a small pilot before the Sep 19 experiment freeze.
+1. Inspect pilot logs for integration mistakes only.
+2. Freeze safety labels, recovery cases, repetitions and variant ordering on Sep 19.
+3. Do not add another accelerator workload until the U0–S4 main table is complete.
+4. Start writing paper architecture/method sections immediately; results remain TBD until real runs.
