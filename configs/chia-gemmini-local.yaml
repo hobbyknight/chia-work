@@ -1,0 +1,54 @@
+# Single-host CHIA cluster for Gate A.2 / Gemmini bring-up.
+# Required before `chia up`:
+#   export THIS_MACHINE=$(hostname -I | awk '{print $1}')
+#   export CHIA_WORK_DIR=$(pwd)
+#   export USER=$(id -un)
+# SSH public-key authentication to THIS_MACHINE and Docker must already work.
+
+provider:
+  head_ip: ${THIS_MACHINE}
+
+auth:
+  ssh_user: ${USER}
+  # If your key is not loaded in ssh-agent, add:
+  # ssh_private_key: ~/.ssh/id_ed25519
+
+available_node_types:
+  gemmini_chipyard:
+    resources: {"chipyard": 1}
+    num_workers: 1
+    compatible_ips: [${THIS_MACHINE}]
+    worker_setup_commands:
+      - "source /home/ray/chipyard/env.sh"
+    docker:
+      image: "ghcr.io/ucb-bar/chia-chisel-build:latest"
+      container_name: "chia-gemmini-chipyard-${USER}"
+      run_options:
+        - --shm-size=10.24gb
+      pull_timeout: 7200
+
+  gemmini_verilator:
+    resources: {"verilator_run": 1}
+    num_workers: 1
+    compatible_ips: [${THIS_MACHINE}]
+    docker:
+      image: "ghcr.io/ucb-bar/chia-verilator-run:latest"
+      container_name: "chia-gemmini-verilator-${USER}"
+      run_options:
+        - --ulimit
+        - nofile=65536:65536
+        - --shm-size=10.24gb
+
+head_env_commands:
+  - "source ${CHIA_WORK_DIR}/.venv/bin/activate"
+
+head_setup_commands:
+  - "source ${CHIA_WORK_DIR}/.venv/bin/activate"
+
+head_start_ray_commands:
+  - "source ${CHIA_WORK_DIR}/.venv/bin/activate && ray stop"
+  - "source ${CHIA_WORK_DIR}/.venv/bin/activate && ray start --head --port=6379 --include-dashboard=True --dashboard-agent-listen-port=0"
+
+worker_start_ray_commands:
+  - "ray stop"
+  - "ray start --address=$RAY_HEAD_IP:6379 --dashboard-agent-listen-port=0"
