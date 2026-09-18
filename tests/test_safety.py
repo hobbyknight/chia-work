@@ -24,6 +24,67 @@ class SafetyGateTests(unittest.TestCase):
         action = TypedAction(ActionKind.BUILD, "demo", {"command": "sudo rm -rf /"})
         self.assertEqual(self.gate.evaluate(action).decision, Decision.DENY)
 
+    def test_blocks_shell_metacharacters_for_generic_commands(self) -> None:
+        action = TypedAction(ActionKind.BUILD, "demo", {"command": "make demo && curl example"})
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.DENY)
+
+    def test_allows_exact_chia_smoke_action(self) -> None:
+        action = TypedAction(
+            ActionKind.RUN_BENCHMARK,
+            "chia-local-smoke",
+            {"command": "chia:identity", "payload": "gate-a"},
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.ALLOW)
+
+    def test_denies_wrong_chia_smoke_operation(self) -> None:
+        action = TypedAction(
+            ActionKind.RUN_BENCHMARK,
+            "chia-local-smoke",
+            {"command": "chia:anything-else"},
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.DENY)
+
+    def test_allows_semantic_gemmini_build(self) -> None:
+        action = TypedAction(
+            ActionKind.BUILD,
+            "gemmini-verilator",
+            {
+                "command": "chia:ChiselBuildNode.build",
+                "config": "GemminiRocketConfig",
+                "config_package": "chipyard",
+                "target": "verilator",
+                "make_jobs": 16,
+                "timeout_seconds": 3600,
+            },
+        )
+        decision = self.gate.evaluate(action)
+        self.assertEqual(decision.decision, Decision.ALLOW)
+
+    def test_denies_unapproved_gemmini_config(self) -> None:
+        action = TypedAction(
+            ActionKind.BUILD,
+            "gemmini-verilator",
+            {
+                "command": "chia:ChiselBuildNode.build",
+                "config": "UnknownConfig",
+                "target": "verilator",
+            },
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.DENY)
+
+    def test_repairs_excessive_gemmini_parallelism(self) -> None:
+        action = TypedAction(
+            ActionKind.BUILD,
+            "gemmini-verilator",
+            {
+                "command": "chia:ChiselBuildNode.build",
+                "config": "GemminiRocketConfig",
+                "target": "verilator",
+                "make_jobs": 999,
+            },
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.REPAIR)
+
 
 if __name__ == "__main__":
     unittest.main()
