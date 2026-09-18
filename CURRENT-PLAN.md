@@ -8,7 +8,7 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 
 ## Current state in one sentence
 
-**Architecture/harness work for Gate A is wired; the only critical Sep 18 gap is real execution evidence.**
+**Gate A.1 is proven by non-mocked CHIA execution; Gate A.2 code/config preflight is proven, and the current critical blocker is executing the real `GemminiRocketConfig` build on a Docker/SSH-capable host.**
 
 ## Critical path
 
@@ -18,19 +18,22 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 - [x] Create control-plane, architecture, experiment, GCP, paper, and submission scaffolding.
 - [x] Implement typed-action + SafetyGate + JSONL logging harness.
 - [x] Pin official CHIA source revision and Python 3.10.19 bootstrap procedure.
-- [x] Implement a real `@ChiaFunction`/Ray smoke path.
+- [x] Execute real `@ChiaFunction`/Ray smoke path and capture `mocked=false` evidence (Gate A.1).
 - [x] Implement real `ChiselBuildNode` → `GemminiRocketConfig` build path.
+- [x] Validate Gate A.2 cluster/SafetyGate/upstream API contract in GitHub Actions.
+- [x] Add host preflight and one-command real Gate A.2 runner.
 - [x] Implement schema-constrained Gemini → TypedAction proposal path.
 - [x] Implement real CHIA build → RISC-V build → Verilator H0 sanity path.
 - [x] Implement real H1 Gemmini `mvin_mvout` accelerator workload.
 - [x] Implement exact U0/S1/S2/S3/S4 semantics and S4 feedback retry loop.
 - [x] Implement non-executing safety challenge suite.
 - [x] Implement cached/incremental U0–S4 hardware pilot runner.
-- [ ] **Execute `make real-chia` and capture first successful `mocked=false` record.**
-- [ ] **Execute H1 `mvin_mvout` once and capture a successful real accelerator record.**
-- [ ] **Execute Gemini → SafetyGate → H1 and capture the first full agentic hardware record.**
+- [ ] **On a suitable host, run `bash scripts/preflight_gate_a2_host.sh`.**
+- [ ] **Run `bash scripts/run_gate_a2_build.sh` and capture a successful real Gemmini simulator artifact (Gate A.2).**
+- [ ] Execute H1 `mvin_mvout` once and capture a successful real accelerator record.
+- [ ] Execute Gemini → SafetyGate → H1 and capture the first full agentic hardware record.
 
-Gate A is NOT considered passed merely because all paths are implemented.
+Gate A is NOT considered passed merely because all paths are implemented or because the A.2 preflight passes.
 
 ### Sep 19 — Make it measurable
 
@@ -41,7 +44,7 @@ Implementation prep is already ahead of this day's original plan:
 - [x] Define H1 primary hardware workload.
 - [x] Define environment/source/binary provenance capture.
 - [ ] Run `make safety-challenges` and inspect labels/results.
-- [ ] Run first real `make hardware-pilot`.
+- [ ] Run first real `make hardware-pilot` after Gate A.2/H1 pass.
 - [ ] Freeze safety challenge case labels after inspection for mistakes only, before main-scale data.
 - [ ] Freeze recovery task family.
 - [ ] Freeze repetition count and variant scheduling/order.
