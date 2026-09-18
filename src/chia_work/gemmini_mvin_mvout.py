@@ -75,8 +75,12 @@ class GemminiMvinMvoutExecutor:
             def _git(*args: str) -> str:
                 try:
                     proc = subprocess.run(
-                        ["git", *args], cwd=tests_path, capture_output=True,
-                        text=True, timeout=10, check=False
+                        ["git", *args],
+                        cwd=tests_path,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                        check=False,
                     )
                     return proc.stdout.strip() if proc.returncode == 0 else ""
                 except Exception:
@@ -96,19 +100,19 @@ class GemminiMvinMvoutExecutor:
                     "source_sha256": "",
                     "git_commit": git_commit,
                     "git_dirty": bool(git_status),
+                    "built_this_run": False,
                 }
 
             with open(source_path, "rb") as source_file:
                 source_bytes = source_file.read()
             source_sha = _hashlib.sha256(source_bytes).hexdigest()
 
-            # Warm-up calls set force_build=True so the upstream build system
-            # validates/rebuilds its artifacts. Timed variant calls set it false
-            # and reuse the validated binary when it remains present.
             stdout = ""
             stderr = ""
             returncode = 0
+            built_this_run = False
             if force_build or not os.path.isfile(binary_path):
+                built_this_run = True
                 try:
                     proc = subprocess.run(
                         ["./build.sh", "bareMetalC"],
@@ -138,6 +142,7 @@ class GemminiMvinMvoutExecutor:
                     "source_sha256": source_sha,
                     "git_commit": git_commit,
                     "git_dirty": bool(git_status),
+                    "built_this_run": built_this_run,
                 }
 
             with open(binary_path, "rb") as binary_file:
@@ -153,11 +158,9 @@ class GemminiMvinMvoutExecutor:
                 "git_commit": git_commit,
                 "git_dirty": bool(git_status),
                 "force_build": force_build,
+                "built_this_run": built_this_run,
             }
 
-        # Both tasks use the chipyard worker resource, so Ray will serialize
-        # them when only one unit is provisioned. Submitting both here still
-        # lets the scheduler exploit extra workers if the funded cluster grows.
         simulator_ref = build_node.build.chia_remote(build_node)
         workload_ref = build_mvin_mvout.chia_remote(
             gemmini_tests_path, workload_timeout, force_workload_build
@@ -184,6 +187,7 @@ class GemminiMvinMvoutExecutor:
                 "source_sha256": workload.get("source_sha256", ""),
                 "gemmini_tests_git_commit": workload.get("git_commit", ""),
                 "gemmini_tests_git_dirty": workload.get("git_dirty"),
+                "workload_built_this_run": workload.get("built_this_run"),
             }
 
         run_node = VerilatorRunNode()
@@ -222,6 +226,7 @@ class GemminiMvinMvoutExecutor:
             "gemmini_tests_git_commit": workload.get("git_commit", ""),
             "gemmini_tests_git_dirty": workload.get("git_dirty"),
             "workload_force_build": workload.get("force_build"),
+            "workload_built_this_run": workload.get("built_this_run"),
             "run_log_tail": run_result.log[-4000:],
             "run_out_tail": run_result.out[-4000:],
             "max_cycles": max_cycles,
