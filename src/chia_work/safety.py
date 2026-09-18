@@ -21,8 +21,9 @@ class SafetyDecision:
 class SafetyGate:
     """Small, auditable experimental policy gate for the hackathon.
 
-    The gate combines generic command checks with semantic policies for known
-    typed targets. It is an experiment component, not a production sandbox.
+    ``semantic_enabled=False`` is the S1 ablation: generic type/command checks
+    only. The default ``True`` adds target-specific typed policies (S2+).
+    This is an experiment component, not a production sandbox.
     """
 
     DEFAULT_ALLOWED = {
@@ -44,8 +45,14 @@ class SafetyGate:
 
     SHELL_META_FRAGMENTS = ("&&", "||", ";", "`", "$(", ">", "<")
 
-    def __init__(self, allowed_kinds: set[ActionKind] | None = None) -> None:
+    def __init__(
+        self,
+        allowed_kinds: set[ActionKind] | None = None,
+        *,
+        semantic_enabled: bool = True,
+    ) -> None:
         self.allowed_kinds = allowed_kinds or set(self.DEFAULT_ALLOWED)
+        self.semantic_enabled = semantic_enabled
 
     @staticmethod
     def _int_param(action: TypedAction, name: str, default: int) -> int | None:
@@ -201,8 +208,12 @@ class SafetyGate:
             if not command.strip():
                 return SafetyDecision(Decision.REPAIR, "missing command for executable action")
 
-        known = self._known_target_policy(action)
-        if known is not None:
-            return known
+        if self.semantic_enabled:
+            known = self._known_target_policy(action)
+            if known is not None:
+                return known
 
-        return SafetyDecision(Decision.ALLOW, "generic policy checks passed")
+        return SafetyDecision(
+            Decision.ALLOW,
+            "semantic target policy passed" if self.semantic_enabled else "generic policy checks passed",
+        )
