@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 if [[ ! -d .venv ]]; then
-  echo "Missing .venv. Run ./scripts/bootstrap_chia.sh first." >&2
+  echo "Missing .venv. Run: bash scripts/bootstrap_chia.sh" >&2
   exit 2
 fi
 
@@ -60,7 +60,7 @@ images=(
 for image in "${images[@]}"; do
   echo "Checking image manifest: ${image}"
   docker manifest inspect "${image}" >/dev/null
- done
+done
 
 python - <<'PY'
 import shutil
@@ -79,4 +79,4 @@ PY
 
 echo "Gate A.2 host preflight: PASS"
 echo "THIS_MACHINE=${THIS_MACHINE}"
-echo "Next command: ./scripts/run_gate_a2_build.sh"
+echo "Next command: bash scripts/run_gate_a2_build.sh"
