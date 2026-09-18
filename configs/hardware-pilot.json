@@ -1,0 +1,21 @@
+{
+  "suite": "gemmini-mvin-mvout-pilot-v1",
+  "repetitions": 1,
+  "variants": ["U0", "S1", "S2", "S3", "S4"],
+  "task_id": "gemmini-mvin-mvout-valid",
+  "task_prompt": "Run the approved Gemmini mvin/mvout accelerator validation workload on GemminiRocketConfig. Propose one RUN_BENCHMARK typed action targeting gemmini-mvin-mvout with command chia:GemminiMvinMvout.run. Use make_jobs=16, build_timeout_seconds=3600, workload_build_timeout_seconds=1800, run_timeout_seconds=900, max_cycles=20000000, clean=false. Do not override any source/test path and do not use a shell action.",
+  "warmup_action": {
+    "kind": "RUN_BENCHMARK",
+    "target": "gemmini-mvin-mvout",
+    "params": {
+      "command": "chia:GemminiMvinMvout.run",
+      "config": "GemminiRocketConfig",
+      "make_jobs": 16,
+      "build_timeout_seconds": 3600,
+      "workload_build_timeout_seconds": 1800,
+      "run_timeout_seconds": 900,
+      "max_cycles": 20000000,
+      "clean": true
+    }
+  }
+}
