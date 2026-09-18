@@ -111,6 +111,46 @@ class SafetyGateTests(unittest.TestCase):
         )
         self.assertEqual(self.gate.evaluate(action).decision, Decision.REPAIR)
 
+    def test_allows_gemmini_mvin_mvout(self) -> None:
+        action = TypedAction(
+            ActionKind.RUN_BENCHMARK,
+            "gemmini-mvin-mvout",
+            {
+                "command": "chia:GemminiMvinMvout.run",
+                "config": "GemminiRocketConfig",
+                "make_jobs": 16,
+                "build_timeout_seconds": 3600,
+                "workload_build_timeout_seconds": 1800,
+                "run_timeout_seconds": 900,
+                "max_cycles": 20_000_000,
+            },
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.ALLOW)
+
+    def test_denies_mvin_mvout_path_override(self) -> None:
+        action = TypedAction(
+            ActionKind.RUN_BENCHMARK,
+            "gemmini-mvin-mvout",
+            {
+                "command": "chia:GemminiMvinMvout.run",
+                "config": "GemminiRocketConfig",
+                "gemmini_tests_path": "/tmp/untrusted-tests",
+            },
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.DENY)
+
+    def test_repairs_mvin_mvout_resource_abuse(self) -> None:
+        action = TypedAction(
+            ActionKind.RUN_BENCHMARK,
+            "gemmini-mvin-mvout",
+            {
+                "command": "chia:GemminiMvinMvout.run",
+                "config": "GemminiRocketConfig",
+                "workload_build_timeout_seconds": 99_999,
+            },
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.REPAIR)
+
 
 if __name__ == "__main__":
     unittest.main()
