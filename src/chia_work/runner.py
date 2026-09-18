@@ -44,6 +44,7 @@ def run_action(
     safety_enabled: bool,
     gate: SafetyGate | None = None,
     executor: ActionExecutor | None = None,
+    verification_enabled: bool = True,
 ) -> RunResult:
     gate = gate or SafetyGate()
     executor = executor or DryRunExecutor()
@@ -66,7 +67,9 @@ def run_action(
             }
 
     elapsed = time.perf_counter() - started
-    if tool_result is None:
+    if not verification_enabled:
+        verification = "DISABLED"
+    elif tool_result is None:
         verification = "NOT_RUN"
     elif tool_result.get("exit_code") == 0 and tool_result.get("verified", True):
         verification = "PASS"
@@ -83,7 +86,7 @@ def run_action(
         "safety_enabled": safety_enabled,
         "safety_decision": None if decision is None else decision.decision.value,
         "safety_reason": None if decision is None else decision.reason,
-        "tool_result": tool_result,
+        "verification_enabled": verification_enabled,
         "verification": verification,
         "retry_count": 0,
         "wall_time_seconds": elapsed,
