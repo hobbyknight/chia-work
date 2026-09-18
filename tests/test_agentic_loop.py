@@ -17,7 +17,7 @@ class _SequenceAgent:
             action=action,
             model="fake-gemini",
             rationale="test",
-            usage={},
+            usage={"prompt_token_count": 10, "candidates_token_count": 5, "total_token_count": 15},
             raw_text="{}",
         )
 
@@ -38,30 +38,30 @@ class _CountingExecutor:
         }
 
 
+def _good_action():
+    return TypedAction(
+        ActionKind.RUN_BENCHMARK,
+        "gemmini-mvin-mvout",
+        {
+            "command": "chia:GemminiMvinMvout.run",
+            "config": "GemminiRocketConfig",
+            "make_jobs": 16,
+            "build_timeout_seconds": 3600,
+            "workload_build_timeout_seconds": 1800,
+            "run_timeout_seconds": 900,
+            "max_cycles": 20_000_000,
+        },
+    )
+
+
 class AgenticLoopTests(unittest.TestCase):
     def test_s4_repairs_semantically_invalid_action_before_execution(self):
         bad = TypedAction(
             ActionKind.RUN_BENCHMARK,
             "gemmini-mvin-mvout",
-            {
-                "command": "chia:GemminiMvinMvout.run",
-                "config": "UnknownConfig",
-            },
+            {"command": "chia:GemminiMvinMvout.run", "config": "UnknownConfig"},
         )
-        good = TypedAction(
-            ActionKind.RUN_BENCHMARK,
-            "gemmini-mvin-mvout",
-            {
-                "command": "chia:GemminiMvinMvout.run",
-                "config": "GemminiRocketConfig",
-                "make_jobs": 16,
-                "build_timeout_seconds": 3600,
-                "workload_build_timeout_seconds": 1800,
-                "run_timeout_seconds": 900,
-                "max_cycles": 20_000_000,
-            },
-        )
-        agent = _SequenceAgent([bad, good])
+        agent = _SequenceAgent([bad, _good_action()])
         executor = _CountingExecutor()
 
         result = run_agentic_task(
@@ -78,6 +78,10 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertTrue(result["recovered"])
         self.assertEqual(result["verification"], "PASS")
         self.assertIn("rejected before execution", agent.contexts[1])
+        self.assertEqual(result["agent_proposal_count"], 2)
+        self.assertEqual(result["tool_call_count"], 1)
+        self.assertEqual(result["api_token_usage"]["total_token_count"], 30)
+        self.assertGreaterEqual(result["end_to_end_wall_time_seconds"], result["agent_wall_time_seconds"])
 
     def test_s2_does_not_retry(self):
         bad = TypedAction(
@@ -97,6 +101,33 @@ class AgenticLoopTests(unittest.TestCase):
         self.assertEqual(executor.calls, 0)
         self.assertEqual(result["retry_count"], 0)
         self.assertFalse(result["recovery_enabled"])
+        self.assertEqual(result["tool_call_count"], 0)
+
+    def test_controlled_seed_is_not_counted_as_agent_proposal(self):
+        bad_seed = TypedAction(
+            ActionKind.RUN_BENCHMARK,
+            "gemmini-mvin-mvout",
+            {
+                "command": "chia:GemminiMvinMvout.run",
+                "config": "GemminiRocketConfig",
+                "make_jobs": 999,
+            },
+        )
+        agent = _SequenceAgent([_good_action()])
+        executor = _CountingExecutor()
+        loop = run_agentic_task(
+            "repair the approved workload",
+            variant="S4",
+            task_id="controlled-seed",
+            executor=executor,
+            agent=agent,
+            initial_action=bad_seed,
+        )
+        result = loop.final.record
+        self.assertEqual(loop.attempts[0]["action_source"], "controlled_seed")
+        self.assertEqual(result["agent_proposal_count"], 1)
+        self.assertEqual(result["tool_call_count"], 1)
+        self.assertTrue(result["recovered"])
 
 
 if __name__ == "__main__":
