@@ -1,4 +1,4 @@
-.PHONY: smoke test experiments real-chia real-agent gemmini-up real-gemmini real-agent-gemmini real-gemmini-sanity real-agent-gemmini-sanity real-gemmini-mvin-mvout real-agent-gemmini-mvin-mvout gemmini-down status
+.PHONY: smoke test experiments safety-challenges capture-env real-chia real-agent gemmini-up real-gemmini real-agent-gemmini real-gemmini-sanity real-agent-gemmini-sanity real-gemmini-mvin-mvout real-agent-gemmini-mvin-mvout hardware-pilot gemmini-down status
 
 smoke:
 	PYTHONPATH=src python scripts/smoke_test.py
@@ -8,6 +8,12 @@ test:
 
 experiments:
 	PYTHONPATH=src python scripts/run_experiments.py --config configs/experiment.example.json
+
+safety-challenges:
+	PYTHONPATH=src python scripts/evaluate_safety_challenges.py
+
+capture-env:
+	PYTHONPATH=src python scripts/capture_environment.py
 
 real-chia:
 	PYTHONPATH=src python scripts/real_chia_smoke.py
@@ -35,6 +41,9 @@ real-gemmini-mvin-mvout:
 
 real-agent-gemmini-mvin-mvout:
 	chia job submit --working-dir . -- python scripts/real_gemini_gemmini_mvin_mvout.py
+
+hardware-pilot:
+	chia job submit --working-dir . -- python scripts/run_real_hardware_pilot.py
 
 gemmini-down:
 	chia down configs/chia-gemmini-local.yaml
