@@ -86,6 +86,7 @@ def run_action(
         "safety_enabled": safety_enabled,
         "safety_decision": None if decision is None else decision.decision.value,
         "safety_reason": None if decision is None else decision.reason,
+        "tool_result": tool_result,
         "verification_enabled": verification_enabled,
         "verification": verification,
         "retry_count": 0,
