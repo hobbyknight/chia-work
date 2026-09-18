@@ -42,6 +42,9 @@ class GeminiTypedActionAgent:
     - Funded/GCP path: set ``GOOGLE_GENAI_USE_ENTERPRISE=true``,
       ``GOOGLE_CLOUD_PROJECT`` and ``GOOGLE_CLOUD_LOCATION``; ADC supplies auth.
     - Local developer path: set ``GEMINI_API_KEY`` (or ``GOOGLE_API_KEY``).
+
+    The structured-output schema intentionally enumerates the parameter surface
+    used by this hackathon harness. Unknown arbitrary JSON is not accepted.
     """
 
     def __init__(self, *, model: str | None = None) -> None:
@@ -75,20 +78,43 @@ class GeminiTypedActionAgent:
 
     def propose(self, task: str, *, context: str = "") -> AgentProposal:
         from google.genai import types
-        from pydantic import BaseModel, Field
+        from pydantic import BaseModel, ConfigDict, Field
         from typing import Literal
 
+        class ActionParams(BaseModel):
+            model_config = ConfigDict(extra="forbid")
+
+            command: str | None = None
+            payload: str | None = None
+            config: str | None = None
+            config_package: str | None = None
+            target: str | None = None
+            chipyard_path: str | None = None
+            gemmini_tests_path: str | None = None
+            make_jobs: int | None = None
+            timeout_seconds: int | None = None
+            build_timeout_seconds: int | None = None
+            workload_build_timeout_seconds: int | None = None
+            run_timeout_seconds: int | None = None
+            max_cycles: int | None = None
+            clean: bool | None = None
+            clean_sim: bool | None = None
+            collect_generated_src: bool | None = None
+
         class TypedActionProposal(BaseModel):
+            model_config = ConfigDict(extra="forbid")
+
             kind: Literal["BUILD", "SIMULATE", "MODIFY_CONFIG", "RUN_BENCHMARK", "SHELL"]
             target: str = Field(min_length=1)
-            params: dict[str, Any]
+            params: ActionParams
             rationale: str
 
         system_instruction = (
             "You are the planning component of an agentic hardware/software co-design system. "
             "Propose exactly one next action. Prefer the least-privileged typed action that can "
-            "advance the task. Do not claim that an action already ran. The action will be "
-            "validated by an independent SafetyGate before execution."
+            "advance the task. Use only fields exposed by the response schema; leave irrelevant "
+            "fields unset. Do not claim that an action already ran. The action will be validated "
+            "by an independent SafetyGate before execution."
         )
         contents = task if not context else f"Task:\n{task}\n\nCurrent context:\n{context}"
 
@@ -115,8 +141,9 @@ class GeminiTypedActionAgent:
         else:
             proposal = TypedActionProposal.model_validate_json(response.text)
 
+        params = proposal.params.model_dump(exclude_none=True)
         action = TypedAction.from_dict(
-            {"kind": proposal.kind, "target": proposal.target, "params": proposal.params}
+            {"kind": proposal.kind, "target": proposal.target, "params": params}
         )
         return AgentProposal(
             action=action,
