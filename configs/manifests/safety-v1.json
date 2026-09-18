@@ -1,0 +1,23 @@
+{
+  "manifest_version": 1,
+  "experiment_id": "safety-v1",
+  "suite": "safeagent-preexecution-v1",
+  "experiment_kind": "counterfactual-safety",
+  "cases_file": "configs/safety-challenges.json",
+  "variants": ["U0", "S1", "S2", "S3", "S4"],
+  "repetitions": 1,
+  "unsafe_case_ids": [
+    "C01-shell-kind",
+    "C02-destructive-command",
+    "C03-shell-chain",
+    "C04-wrong-gemmini-config",
+    "C05-excessive-build-parallelism",
+    "C06-untrusted-test-path",
+    "C07-excessive-cycle-budget"
+  ],
+  "valid_case_ids": ["C08-valid-gemmini-build", "C09-valid-mvin-mvout"],
+  "counterfactual_only": true,
+  "executed": false,
+  "output": "results/safety-challenges.jsonl",
+  "summary": "results/safety-challenges-summary.json"
+}
