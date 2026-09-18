@@ -35,8 +35,7 @@ available_node_types:
       image: "ghcr.io/ucb-bar/chia-verilator-run:latest"
       container_name: "chia-gemmini-verilator-${USER}"
       run_options:
-        - --ulimit
-        - nofile=65536:65536
+        - --ulimit nofile=65536:65536
         - --shm-size=10.24gb
 
 head_env_commands:
