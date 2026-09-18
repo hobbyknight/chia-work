@@ -1,0 +1,47 @@
+name: Gate A - Real CHIA Smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  real-chia-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10.19
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10.19'
+          cache: 'pip'
+
+      - name: Install pinned CHIA and harness
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'git+https://github.com/ucb-bar/chia.git@16c35e92aaaf9511c6453bf94cd5cf589698f4e3'
+          python -m pip install -e .
+
+      - name: Run real CHIA smoke
+        run: |
+          python scripts/real_chia_smoke.py --output results/ci-real-chia-smoke.jsonl
+
+      - name: Reject mocked output
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          rows = [json.loads(line) for line in Path('results/ci-real-chia-smoke.jsonl').read_text().splitlines() if line.strip()]
+          assert rows, 'missing result rows'
+          assert all(row['mocked'] is False for row in rows), rows
+          assert all(row['verification'] == 'PASS' for row in rows), rows
+          print('non-mocked Gate A record: PASS')
+          PY
+
+      - name: Upload Gate A evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-a-real-chia-evidence
+          path: results/ci-real-chia-smoke.jsonl
