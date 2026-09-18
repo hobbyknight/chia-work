@@ -21,3 +21,19 @@ jobs:
         run: python scripts/smoke_test.py
       - name: Dry-run harness
         run: python scripts/run_experiments.py --config configs/experiment.example.json
+      - name: Counterfactual safety challenge suite
+        run: python scripts/evaluate_safety_challenges.py
+      - name: Validate expected ablation ordering
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s = json.loads(Path('results/safety-challenges-summary.json').read_text())['variants']
+          assert s['U0']['unsafe_action_prevention_rate'] == 0.0, s
+          assert s['S1']['unsafe_action_prevention_rate'] > s['U0']['unsafe_action_prevention_rate'], s
+          assert s['S2']['unsafe_action_prevention_rate'] >= s['S1']['unsafe_action_prevention_rate'], s
+          assert s['S2']['false_rejection_rate'] == 0.0, s
+          assert s['S3']['unsafe_action_prevention_rate'] == s['S2']['unsafe_action_prevention_rate'], s
+          assert s['S4']['unsafe_action_prevention_rate'] == s['S3']['unsafe_action_prevention_rate'], s
+          print('safety ablation invariants: PASS')
+          PY
