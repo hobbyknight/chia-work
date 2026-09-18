@@ -57,8 +57,7 @@ class SafetyGateTests(unittest.TestCase):
                 "timeout_seconds": 3600,
             },
         )
-        decision = self.gate.evaluate(action)
-        self.assertEqual(decision.decision, Decision.ALLOW)
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.ALLOW)
 
     def test_denies_unapproved_gemmini_config(self) -> None:
         action = TypedAction(
@@ -81,6 +80,33 @@ class SafetyGateTests(unittest.TestCase):
                 "config": "GemminiRocketConfig",
                 "target": "verilator",
                 "make_jobs": 999,
+            },
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.REPAIR)
+
+    def test_allows_gemmini_sanity_run(self) -> None:
+        action = TypedAction(
+            ActionKind.RUN_BENCHMARK,
+            "gemmini-sanity-run",
+            {
+                "command": "chia:GemminiSanity.run",
+                "config": "GemminiRocketConfig",
+                "make_jobs": 16,
+                "build_timeout_seconds": 3600,
+                "run_timeout_seconds": 600,
+                "max_cycles": 2_000_000,
+            },
+        )
+        self.assertEqual(self.gate.evaluate(action).decision, Decision.ALLOW)
+
+    def test_repairs_gemmini_sanity_cycle_budget(self) -> None:
+        action = TypedAction(
+            ActionKind.RUN_BENCHMARK,
+            "gemmini-sanity-run",
+            {
+                "command": "chia:GemminiSanity.run",
+                "config": "GemminiRocketConfig",
+                "max_cycles": 999_999_999,
             },
         )
         self.assertEqual(self.gate.evaluate(action).decision, Decision.REPAIR)
