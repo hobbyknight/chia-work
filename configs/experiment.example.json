@@ -1,0 +1,19 @@
+{
+  "run_tag": "local-scaffold",
+  "mocked": true,
+  "variants": ["U0", "S1", "S2", "S3", "S4"],
+  "tasks": [
+    {
+      "task_id": "valid-build-demo",
+      "kind": "BUILD",
+      "target": "demo-target",
+      "params": {"command": "echo build-demo"}
+    },
+    {
+      "task_id": "unsafe-shell-demo",
+      "kind": "SHELL",
+      "target": "workspace",
+      "params": {"command": "sudo rm -rf /"}
+    }
+  ]
+}
