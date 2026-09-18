@@ -1,4 +1,4 @@
-# Single-host CHIA cluster for Gate A.2 / Gemmini bring-up.
+# Single-host CHIA cluster for Gate A / Gemmini bring-up.
 # Required before `chia up`:
 #   export THIS_MACHINE=$(hostname -I | awk '{print $1}')
 #   export CHIA_WORK_DIR=$(pwd)
@@ -24,8 +24,18 @@ available_node_types:
       image: "ghcr.io/ucb-bar/chia-chisel-build:latest"
       container_name: "chia-gemmini-chipyard-${USER}"
       run_options:
+        - --ulimit nofile=65536:65536
         - --shm-size=10.24gb
       pull_timeout: 7200
+
+  riscv_build:
+    resources: {"riscv_build": 1}
+    num_workers: 1
+    compatible_ips: [${THIS_MACHINE}]
+    docker:
+      image: "ghcr.io/ucb-bar/chia-riscv-cross:latest"
+      container_name: "chia-riscv-build-${USER}"
+      pull_before_run: true
 
   gemmini_verilator:
     resources: {"verilator_run": 1}
