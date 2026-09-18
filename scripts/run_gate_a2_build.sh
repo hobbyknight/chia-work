@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
+if [[ ! -d .venv ]]; then
+  echo "Missing .venv. Run: bash scripts/bootstrap_chia.sh" >&2
+  exit 2
+fi
+
 # shellcheck disable=SC1091
 source .venv/bin/activate
 
@@ -19,7 +24,7 @@ BUILD_TIMEOUT_SECONDS="${BUILD_TIMEOUT_SECONDS:-3600}"
 
 mkdir -p "$(dirname "${RESULT_PATH}")" "$(dirname "${JOB_LOG}")"
 
-./scripts/preflight_gate_a2_host.sh
+bash scripts/preflight_gate_a2_host.sh
 
 echo "Bringing up CHIA cluster: ${CLUSTER_CONFIG}"
 chia up "${CLUSTER_CONFIG}"
@@ -41,11 +46,12 @@ chia job submit --working-dir . -- \
     --timeout-seconds "${BUILD_TIMEOUT_SECONDS}" \
   2>&1 | tee "${JOB_LOG}"
 
-python - <<PY
+RESULT_PATH_FOR_PY="${RESULT_PATH}" python - <<'PY'
 import json
+import os
 from pathlib import Path
 
-path = Path(${RESULT_PATH@Q})
+path = Path(os.environ["RESULT_PATH_FOR_PY"])
 if not path.exists():
     raise SystemExit(f"Gate A.2 result file was not created: {path}")
 rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
