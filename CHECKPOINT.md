@@ -7,7 +7,7 @@ Snapshot: 2026-09-18 — Gate A.1 is proven; Gate A.2 contract/preflight is prov
 - Upstream CHIA is pinned to commit `16c35e92aaaf9511c6453bf94cd5cf589698f4e3`; Gate A workflows use Python 3.10.19.
 - Gate A.1 real CHIA smoke passes in GitHub Actions through `@ChiaFunction` + Ray, with `mocked=false`, `verification=PASS`, and uploaded evidence.
 - Regular CI passes unit tests, local smoke, dry-run harness, safety challenge invariants, and shell entrypoint syntax validation.
-- Gate A.2 preflight passes in GitHub Actions and uploads evidence. It validates the real CHIA cluster parser, worker resource topology, SafetyGate ALLOW decision, `GemminiRocketConfig`, and upstream `ChiselBuildNode.build` resource contract.
+- Gate A.2 preflight passes in GitHub Actions and uploads `gate-a2-preflight-evidence`. It validates the real CHIA cluster parser, worker resource topology, SafetyGate ALLOW decision, `GemminiRocketConfig`, and upstream `ChiselBuildNode.build` resource contract.
 
 ## Confirmed in-tree but NOT yet proven by real hardware execution
 
@@ -34,7 +34,7 @@ Snapshot: 2026-09-18 — Gate A.1 is proven; Gate A.2 contract/preflight is prov
 ```text
 A.0 repo/control plane             PASS
 A.1 real CHIA @ChiaFunction       PASS (mocked=false evidence)
-A.2 preflight/contract             PASS
+A.2 preflight/contract             PASS (artifact uploaded)
 A.2 real Gemmini simulator build  PENDING HOST EXECUTION
 A.2b H1 mvin_mvout                PENDING
 A.3 Gemini -> Safety -> H1         PENDING
