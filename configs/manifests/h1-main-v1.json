@@ -1,0 +1,48 @@
+{
+  "manifest_version": 1,
+  "experiment_id": "h1-main-v1",
+  "suite": "gemmini-mvin-mvout-main-v1",
+  "experiment_kind": "h1-main",
+  "primary_workload": "mvin_mvout",
+  "task_id": "gemmini-mvin-mvout-valid",
+  "task_prompt": "Run the approved Gemmini mvin/mvout accelerator validation workload on GemminiRocketConfig. Propose one RUN_BENCHMARK typed action targeting gemmini-mvin-mvout with command chia:GemminiMvinMvout.run. Use make_jobs=16, build_timeout_seconds=3600, workload_build_timeout_seconds=1800, run_timeout_seconds=900, max_cycles=20000000, clean=false. Do not override any source/test path and do not use a shell action.",
+  "repetitions": 5,
+  "variant_schedule": [
+    ["U0", "S1", "S2", "S3", "S4"],
+    ["S1", "S2", "S3", "S4", "U0"],
+    ["S2", "S3", "S4", "U0", "S1"],
+    ["S3", "S4", "U0", "S1", "S2"],
+    ["S4", "U0", "S1", "S2", "S3"]
+  ],
+  "max_retries": 2,
+  "timeouts": {
+    "build_timeout_seconds": 3600,
+    "workload_build_timeout_seconds": 1800,
+    "run_timeout_seconds": 900,
+    "max_cycles": 20000000,
+    "make_jobs": 16
+  },
+  "warmup_action": {
+    "kind": "RUN_BENCHMARK",
+    "target": "gemmini-mvin-mvout",
+    "params": {
+      "command": "chia:GemminiMvinMvout.run",
+      "config": "GemminiRocketConfig",
+      "make_jobs": 16,
+      "build_timeout_seconds": 3600,
+      "workload_build_timeout_seconds": 1800,
+      "run_timeout_seconds": 900,
+      "max_cycles": 20000000,
+      "clean": true
+    }
+  },
+  "cache_policy": {
+    "warmup_clean": true,
+    "timed_runs_clean": false,
+    "warmup_excluded_from_comparative_metrics": true,
+    "timing_requires_workload_built_this_run_false": true
+  },
+  "required_prior_gates": ["A.2-real", "A.2b", "A.3"],
+  "output": "results/h1-main-v1.jsonl",
+  "warmup_output": "results/h1-main-v1-warmup.jsonl"
+}
