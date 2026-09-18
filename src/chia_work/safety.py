@@ -54,6 +54,39 @@ class SafetyGate:
         except (TypeError, ValueError):
             return None
 
+    def _validate_resource_budget(
+        self,
+        action: TypedAction,
+        *,
+        max_cycles_default: int,
+        max_cycles_upper: int,
+        include_workload_build: bool = False,
+    ) -> SafetyDecision | None:
+        make_jobs = self._int_param(action, "make_jobs", 16)
+        build_timeout = self._int_param(action, "build_timeout_seconds", 3600)
+        run_timeout = self._int_param(action, "run_timeout_seconds", 600)
+        max_cycles = self._int_param(action, "max_cycles", max_cycles_default)
+        workload_timeout = (
+            self._int_param(action, "workload_build_timeout_seconds", 1800)
+            if include_workload_build
+            else 1800
+        )
+        if None in (make_jobs, build_timeout, run_timeout, max_cycles, workload_timeout):
+            return SafetyDecision(Decision.REPAIR, "resource-budget parameters must be integers")
+        if not 1 <= make_jobs <= 64:
+            return SafetyDecision(Decision.REPAIR, "make_jobs must be in [1, 64]")
+        if not 60 <= build_timeout <= 7200:
+            return SafetyDecision(Decision.REPAIR, "build_timeout_seconds must be in [60, 7200]")
+        if not 30 <= run_timeout <= 1800:
+            return SafetyDecision(Decision.REPAIR, "run_timeout_seconds must be in [30, 1800]")
+        if include_workload_build and not 60 <= workload_timeout <= 3600:
+            return SafetyDecision(
+                Decision.REPAIR, "workload_build_timeout_seconds must be in [60, 3600]"
+            )
+        if not 10_000 <= max_cycles <= max_cycles_upper:
+            return SafetyDecision(Decision.REPAIR, "max_cycles outside approved range")
+        return None
+
     def _known_target_policy(self, action: TypedAction) -> SafetyDecision | None:
         if action.target == "chia-local-smoke":
             if action.kind != ActionKind.RUN_BENCHMARK:
@@ -102,22 +135,38 @@ class SafetyGate:
                 )
             if action.params.get("config", "GemminiRocketConfig") != "GemminiRocketConfig":
                 return SafetyDecision(Decision.DENY, "unapproved Gemmini sanity config")
-
-            make_jobs = self._int_param(action, "make_jobs", 16)
-            build_timeout = self._int_param(action, "build_timeout_seconds", 3600)
-            run_timeout = self._int_param(action, "run_timeout_seconds", 600)
-            max_cycles = self._int_param(action, "max_cycles", 2_000_000)
-            if None in (make_jobs, build_timeout, run_timeout, max_cycles):
-                return SafetyDecision(Decision.REPAIR, "sanity numeric parameters must be integers")
-            if not 1 <= make_jobs <= 64:
-                return SafetyDecision(Decision.REPAIR, "make_jobs must be in [1, 64]")
-            if not 60 <= build_timeout <= 7200:
-                return SafetyDecision(Decision.REPAIR, "build_timeout_seconds must be in [60, 7200]")
-            if not 30 <= run_timeout <= 1800:
-                return SafetyDecision(Decision.REPAIR, "run_timeout_seconds must be in [30, 1800]")
-            if not 10_000 <= max_cycles <= 20_000_000:
-                return SafetyDecision(Decision.REPAIR, "max_cycles outside approved sanity range")
+            budget = self._validate_resource_budget(
+                action, max_cycles_default=2_000_000, max_cycles_upper=20_000_000
+            )
+            if budget is not None:
+                return budget
             return SafetyDecision(Decision.ALLOW, "known Gemmini sanity run matches semantic policy")
+
+        if action.target == "gemmini-mvin-mvout":
+            if action.kind != ActionKind.RUN_BENCHMARK:
+                return SafetyDecision(Decision.REPAIR, "gemmini-mvin-mvout requires RUN_BENCHMARK")
+            if action.params.get("command") != "chia:GemminiMvinMvout.run":
+                return SafetyDecision(
+                    Decision.DENY,
+                    "gemmini-mvin-mvout only permits the typed accelerator workload",
+                )
+            if action.params.get("config", "GemminiRocketConfig") != "GemminiRocketConfig":
+                return SafetyDecision(Decision.DENY, "unapproved Gemmini accelerator config")
+            tests_path = action.params.get("gemmini_tests_path")
+            approved_path = "/home/ray/chipyard/generators/gemmini/software/gemmini-rocc-tests"
+            if tests_path not in (None, approved_path):
+                return SafetyDecision(Decision.DENY, "unapproved Gemmini test checkout path")
+            budget = self._validate_resource_budget(
+                action,
+                max_cycles_default=20_000_000,
+                max_cycles_upper=100_000_000,
+                include_workload_build=True,
+            )
+            if budget is not None:
+                return budget
+            return SafetyDecision(
+                Decision.ALLOW, "known Gemmini mvin/mvout workload matches semantic policy"
+            )
 
         return None
 
@@ -140,7 +189,6 @@ class SafetyGate:
                     f"command contains blocked fragment: {fragment}",
                 )
 
-        # Typed CHIA operations are identifiers, not shell command strings.
         if not command.startswith("chia:"):
             for fragment in self.SHELL_META_FRAGMENTS:
                 if fragment in command:
