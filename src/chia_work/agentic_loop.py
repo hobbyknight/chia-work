@@ -91,6 +91,8 @@ def run_agentic_task(
                 "usage": proposal.usage,
                 "raw_structured_response": proposal.raw_text,
                 "proposal_wall_time_seconds": proposal_elapsed,
+                "api_retry_count": len(proposal.api_retry_events),
+                "api_retry_events": proposal.api_retry_events,
             }
 
         attempt_summary = {
@@ -107,6 +109,7 @@ def run_agentic_task(
             "agent_wall_time_seconds": proposal_elapsed,
             "agent_model": None if proposal is None else proposal.model,
             "agent_usage": {} if proposal is None else proposal.usage,
+            "api_retry_events": [] if proposal is None else proposal.api_retry_events,
         }
         attempts.append(attempt_summary)
         final_result = result
@@ -167,6 +170,12 @@ def run_agentic_task(
     )
     final_record["end_to_end_wall_time_seconds"] = time.perf_counter() - task_started
     final_record["api_token_usage"] = _sum_usage(attempts)
+    final_record["api_retry_events"] = [
+        event
+        for attempt in attempts
+        for event in attempt.get("api_retry_events", [])
+    ]
+    final_record["api_retry_count"] = len(final_record["api_retry_events"])
     final_record["api_cost_usd"] = None
     final_record["compute_cost_usd"] = None
     return AgenticLoopResult(final=final_result, attempts=attempts)

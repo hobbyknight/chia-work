@@ -15,8 +15,9 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 - [x] Freeze pilot attempt 1 raw evidence and full Ray log on the GCP VM.
 - [x] Back up attempt 1 to Google Drive and verify matching SHA256 hashes.
 - [x] Preserve attempt 1 as an immutable 4-row partial dataset.
-- [ ] Run a Gemini-only structured TypedAction health probe with `gemini-3.8-flash` using the funded project authentication path.
-- [ ] If the probe passes, add bounded retry handling for transient Gemini API 429/503 responses without changing experiment semantics, then run a complete isolated pilot attempt 2 with new output names.
+- [x] Run a Gemini-only structured TypedAction health probe with `gemini-3.8-flash` using the funded project authentication path; freeze it on VM/Drive with matching hashes.
+- [x] Add and test bounded retry handling for transient Gemini API 429/503 responses without changing experiment semantics.
+- [ ] Run a complete isolated pilot attempt 2 with new output names.
 - [ ] Freeze and validate one complete five-row pilot before H1 main.
 
 Do not merge attempt 1 rows with any future attempt. Do not run H1 main while this lock is active.

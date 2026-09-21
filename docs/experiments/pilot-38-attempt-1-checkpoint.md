@@ -37,3 +37,14 @@ S4 is absent. The warm-up file contains one deterministic row and is excluded fr
 The files were copied byte-for-byte to `/content/drive/MyDrive/CHIA-Hackathon/evidence/` under `results/`, `logs/`, and `manifests/`. All six Drive hashes match the VM hashes above.
 
 No hardware pilot rerun or H1 main job was submitted after this failure.
+
+## Post-failure Gemini health probe
+
+A Gemini-only probe reused the frozen `configs/hardware-pilot.json` task prompt and the same `GeminiTypedActionAgent` structured schema with model `gemini-3.8-flash`, enterprise authentication, project `a3-chia-hack26ath-7706`, and location `global`. It returned a valid schema-constrained proposal with `executed=false`; no CHIA, Ray, Gemmini, or Verilator action was invoked.
+
+| Evidence | SHA256 |
+|---|---|
+| `results/gemini38-health-probe-after-attempt-1.json` | `307fa404bb990cca1f6d8b2038af5941e30fc31e0aa9922997928e559bbeeefb` |
+| `results/gemini38-health-probe-after-attempt-1-SHA256SUMS.txt` | `e3c2c13917bf2dc65f5af2c0e8422f1f5d3384fe2cf05e42f411bcb8ecbf1cd1` |
+
+Both files were backed up to the established Google Drive evidence directory and their Drive hashes match the VM hashes. This PASS permits a complete isolated pilot attempt 2; it does not change the failed status of attempt 1.
