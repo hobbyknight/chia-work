@@ -48,7 +48,7 @@ class GeminiTypedActionAgent:
     """
 
     def __init__(self, *, model: str | None = None) -> None:
-        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        self.model = model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
 
     @staticmethod
     def _client():
