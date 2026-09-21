@@ -17,9 +17,15 @@ fi
 
 mkdir -p logs results
 
+parse_state() {
+  tr '[:lower:]' '[:upper:]' \
+    | grep -Eo 'PENDING|RUNNING|SUCCEEDED|FAILED|STOPPED' \
+    | tail -n 1 || true
+}
+
 status_text="$(ray job status "$JOB" 2>&1 || true)"
 printf '%s\n' "$status_text"
-state="$(printf '%s\n' "$status_text" | grep -Eo 'PENDING|RUNNING|SUCCEEDED|FAILED|STOPPED' | tail -n 1 || true)"
+state="$(printf '%s\n' "$status_text" | parse_state)"
 
 echo "detected_state=${state:-UNKNOWN}"
 
@@ -42,7 +48,7 @@ esac
 
 for _ in $(seq 1 30); do
   status_text="$(ray job status "$JOB" 2>&1 || true)"
-  state="$(printf '%s\n' "$status_text" | grep -Eo 'PENDING|RUNNING|SUCCEEDED|FAILED|STOPPED' | tail -n 1 || true)"
+  state="$(printf '%s\n' "$status_text" | parse_state)"
   case "$state" in
     SUCCEEDED|FAILED|STOPPED) break ;;
   esac
