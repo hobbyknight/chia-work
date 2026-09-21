@@ -1,6 +1,6 @@
 # CURRENT PLAN
 
-Updated: 2026-09-18 (Asia/Bangkok / Vietnam time)
+Updated: 2026-09-21 (UTC)
 
 ## Objective
 
@@ -8,7 +8,18 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 
 ## Current state in one sentence
 
-**Gate A.1 is proven by non-mocked CHIA execution; Gate A.2 code/config preflight is proven, and the current critical blocker is executing the real `GemminiRocketConfig` build on a Docker/SSH-capable host.**
+**The real CHIA/Gemmini/Verilator path is proven. Gemini 3.8 pilot attempt 1 is frozen at 4/5 rows after HTTP 429 `RESOURCE_EXHAUSTED`; a Gemini-only health probe is required before any full pilot attempt 2.**
+
+## Active execution lock
+
+- [x] Freeze pilot attempt 1 raw evidence and full Ray log on the GCP VM.
+- [x] Back up attempt 1 to Google Drive and verify matching SHA256 hashes.
+- [x] Preserve attempt 1 as an immutable 4-row partial dataset.
+- [ ] Run a Gemini-only structured TypedAction health probe with `gemini-3.8-flash` using the funded project authentication path.
+- [ ] If the probe passes, add bounded retry handling for transient Gemini API 429/503 responses without changing experiment semantics, then run a complete isolated pilot attempt 2 with new output names.
+- [ ] Freeze and validate one complete five-row pilot before H1 main.
+
+Do not merge attempt 1 rows with any future attempt. Do not run H1 main while this lock is active.
 
 ## Critical path
 
