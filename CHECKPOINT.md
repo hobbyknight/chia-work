@@ -1,15 +1,19 @@
 # CHECKPOINT
 
-Snapshot: 2026-09-21 — real CHIA/Gemmini/Verilator execution is proven. Gemini 3.8 pilot attempt 1 is frozen as a failed partial attempt after an API capacity error.
+Snapshot: 2026-09-21 — real CHIA/Gemmini/Verilator execution is proven. Two isolated Gemini 3.8 pilot attempts are frozen; project progress is stopped at a persistent Gemini API capacity blocker.
 
 ## Current terminal checkpoint
 
 ```text
-PILOT_38_ATTEMPT_1=FAILED
+PILOT_38_ATTEMPT_2=FAILED
 failure_layer=Gemini API
 failure_code=429 RESOURCE_EXHAUSTED
-completed_rows=4/5
+completed_rows=0/5
+warmup_rows=1
+blocker=HUMAN_BLOCKER
 ```
+
+Attempt 2 used independent filenames and bounded API-only retries. Its warm-up passed, then U0 proposal generation exhausted three retries after repeated HTTP 429 responses. No comparative or H1 job ran. Evidence is frozen on the VM and Drive with matching hashes; see `docs/experiments/pilot-38-attempt-2-checkpoint.md`.
 
 Ray job `raysubmit_2Zua24Fh1x9EYpWR` completed U0, S1, S2, and S3 with `agent.model=gemini-3.8-flash`, real execution, exit code 0, verified output, and `GemminiRocketConfig`. The Gemini API returned HTTP 429 before S4 could be proposed. Raw evidence and the full Ray log are frozen on the VM and backed up to Google Drive with matching SHA256 hashes. See `docs/experiments/pilot-38-attempt-1-checkpoint.md`.
 

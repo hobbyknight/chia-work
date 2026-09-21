@@ -8,7 +8,7 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 
 ## Current state in one sentence
 
-**The real CHIA/Gemmini/Verilator path is proven. Gemini 3.8 pilot attempt 1 is frozen at 4/5 rows after HTTP 429 `RESOURCE_EXHAUSTED`; a Gemini-only health probe is required before any full pilot attempt 2.**
+**The real CHIA/Gemmini/Verilator path is proven. Gemini 3.8 pilot attempts 1 and 2 are frozen after HTTP 429 `RESOURCE_EXHAUSTED`; the project is at `HUMAN_BLOCKER` pending external Gemini quota/capacity intervention.**
 
 ## Active execution lock
 
@@ -17,10 +17,10 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 - [x] Preserve attempt 1 as an immutable 4-row partial dataset.
 - [x] Run a Gemini-only structured TypedAction health probe with `gemini-3.8-flash` using the funded project authentication path; freeze it on VM/Drive with matching hashes.
 - [x] Add and test bounded retry handling for transient Gemini API 429/503 responses without changing experiment semantics.
-- [ ] Run a complete isolated pilot attempt 2 with new output names.
+- [x] Run a complete isolated pilot attempt 2 with new output names; it stopped before U0 after the warm-up because all bounded Gemini API retries returned 429.
 - [ ] Freeze and validate one complete five-row pilot before H1 main.
 
-Do not merge attempt 1 rows with any future attempt. Do not run H1 main while this lock is active.
+Attempt 1 and attempt 2 are immutable and must not be merged with any future attempt. Do not run another pilot or H1 main while `HUMAN_BLOCKER` exists. After quota/capacity is resolved, run a fresh Gemini-only health probe before a new complete isolated pilot attempt.
 
 ## Critical path
 
