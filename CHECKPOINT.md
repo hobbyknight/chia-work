@@ -1,22 +1,24 @@
 # CHECKPOINT
 
-Snapshot: 2026-09-22 — real CHIA/Gemmini/Verilator execution is proven. Two isolated Gemini 3.8 pilot attempts remain frozen; a fresh Gemini-only health probe passed and permits one independent attempt 3.
+Snapshot: 2026-09-22 — real CHIA/Gemmini/Verilator execution is proven. Gemini 3.8 pilot attempt 3 is a complete, frozen, independent U0–S4 dataset; frozen H1 main experiments may begin.
 
 ## Current operational checkpoint
 
 ```text
-GEMINI_38_HEALTH_PROBE_AFTER_ATTEMPT_2=PASS
-model=gemini-3.8-flash
-executed=false
-project=a3-chia-hack26ath-7706
-location=global
-historical_attempt_1=FROZEN_PARTIAL_4_OF_5
-historical_attempt_2=FROZEN_FAILED_0_OF_5
-pilot_attempt_3=NOT_SUBMITTED
-next_action=submit_one_isolated_attempt_3
+PILOT_38_ATTEMPT_3=PASS
+ray_job_id=raysubmit_5mdm3zeyefHLH1cm
+comparative_rows=5/5
+variants=U0,S1,S2,S3,S4
+agent_model=gemini-3.8-flash
+mocked=false
+gemmini_config=GemminiRocketConfig
+pilot_lock=RELEASED
+next_action=freeze_main_environment_and_submit_frozen_H1_main
 ```
 
-The new health-probe record, full log, and SHA256 manifest are frozen on the VM and Google Drive with matching hashes; see `docs/experiments/pilot-38-attempt-3-health-probe-checkpoint.md`. This resolves the active capacity gate operationally. It does not alter either historical pilot attempt or authorize H1 main.
+The new health-probe record, full log, and SHA256 manifest are frozen on the VM and Google Drive with matching hashes; see `docs/experiments/pilot-38-attempt-3-health-probe-checkpoint.md`. This resolved the capacity gate operationally. It does not alter either historical pilot attempt.
+
+Pilot attempt 3 then completed U0/S1/S2/S3/S4 in one independent execution. Every comparative row used `gemini-3.8-flash`, `mocked=false`, `GemminiRocketConfig`, exit code 0, and post-hoc task success. Its evidence is frozen and hash-verified on the VM and Drive; see `docs/experiments/pilot-38-attempt-3-checkpoint.md`.
 
 Attempt 2 used independent filenames and bounded API-only retries. Its warm-up passed, then U0 proposal generation exhausted three retries after repeated HTTP 429 responses. No comparative or H1 job ran. Evidence is frozen on the VM and Drive with matching hashes; see `docs/experiments/pilot-38-attempt-2-checkpoint.md`.
 

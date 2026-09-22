@@ -8,7 +8,7 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 
 ## Current state in one sentence
 
-**The real CHIA/Gemmini/Verilator path is proven. Gemini 3.8 pilot attempts 1 and 2 are frozen after HTTP 429 `RESOURCE_EXHAUSTED`; a fresh Gemini-only health probe passed on 2026-09-22, so the capacity blocker is resolved operationally and one isolated attempt 3 may be submitted.**
+**The real CHIA/Gemmini/Verilator path is proven. Gemini 3.8 pilot attempt 3 produced one complete, frozen, independent real U0–S4 dataset; the frozen H1 main experiment is now the next action.**
 
 ## Active execution lock
 
@@ -19,9 +19,10 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 - [x] Add and test bounded retry handling for transient Gemini API 429/503 responses without changing experiment semantics.
 - [x] Run a complete isolated pilot attempt 2 with new output names; it stopped before U0 after the warm-up because all bounded Gemini API retries returned 429.
 - [x] Re-run the Gemini-only structured TypedAction health probe after attempt 2 and freeze matching VM/Drive evidence.
-- [ ] Submit, freeze, and validate one complete isolated five-row pilot attempt 3 before H1 main.
+- [x] Submit, freeze, and validate one complete isolated five-row pilot attempt 3 before H1 main.
+- [ ] Freeze current H1 main environment provenance and submit the frozen H1 main-run manifest.
 
-Attempt 1 and attempt 2 are immutable and must not be merged with any future attempt. The historical capacity blocker is documented in their checkpoints. The fresh probe recorded in `docs/experiments/pilot-38-attempt-3-health-probe-checkpoint.md` permits one new, completely independent pilot attempt; H1 main remains locked until a single five-row pilot is frozen.
+Attempt 1 and attempt 2 are immutable and must not be merged with any future attempt. Pilot attempt 3 is a separate complete dataset documented in `docs/experiments/pilot-38-attempt-3-checkpoint.md`. It releases the pilot lock; the next execution is the frozen H1 main-run manifest.
 
 ## Critical path
 
