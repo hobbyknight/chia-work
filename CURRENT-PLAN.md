@@ -8,7 +8,7 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 
 ## Current state in one sentence
 
-**The real CHIA/Gemmini/Verilator path is proven. Gemini 3.8 pilot attempts 1 and 2 are frozen after HTTP 429 `RESOURCE_EXHAUSTED`; the project is at `HUMAN_BLOCKER` pending external Gemini quota/capacity intervention.**
+**The real CHIA/Gemmini/Verilator path is proven. Gemini 3.8 pilot attempts 1 and 2 are frozen after HTTP 429 `RESOURCE_EXHAUSTED`; a fresh Gemini-only health probe passed on 2026-09-22, so the capacity blocker is resolved operationally and one isolated attempt 3 may be submitted.**
 
 ## Active execution lock
 
@@ -18,9 +18,10 @@ Deliver a competitive CHIA Hackathon submission around a SafeAgent layer for age
 - [x] Run a Gemini-only structured TypedAction health probe with `gemini-3.8-flash` using the funded project authentication path; freeze it on VM/Drive with matching hashes.
 - [x] Add and test bounded retry handling for transient Gemini API 429/503 responses without changing experiment semantics.
 - [x] Run a complete isolated pilot attempt 2 with new output names; it stopped before U0 after the warm-up because all bounded Gemini API retries returned 429.
-- [ ] Freeze and validate one complete five-row pilot before H1 main.
+- [x] Re-run the Gemini-only structured TypedAction health probe after attempt 2 and freeze matching VM/Drive evidence.
+- [ ] Submit, freeze, and validate one complete isolated five-row pilot attempt 3 before H1 main.
 
-Attempt 1 and attempt 2 are immutable and must not be merged with any future attempt. Do not run another pilot or H1 main while `HUMAN_BLOCKER` exists. After quota/capacity is resolved, run a fresh Gemini-only health probe before a new complete isolated pilot attempt.
+Attempt 1 and attempt 2 are immutable and must not be merged with any future attempt. The historical capacity blocker is documented in their checkpoints. The fresh probe recorded in `docs/experiments/pilot-38-attempt-3-health-probe-checkpoint.md` permits one new, completely independent pilot attempt; H1 main remains locked until a single five-row pilot is frozen.
 
 ## Critical path
 

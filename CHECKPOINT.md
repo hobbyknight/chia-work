@@ -1,17 +1,22 @@
 # CHECKPOINT
 
-Snapshot: 2026-09-21 — real CHIA/Gemmini/Verilator execution is proven. Two isolated Gemini 3.8 pilot attempts are frozen; project progress is stopped at a persistent Gemini API capacity blocker.
+Snapshot: 2026-09-22 — real CHIA/Gemmini/Verilator execution is proven. Two isolated Gemini 3.8 pilot attempts remain frozen; a fresh Gemini-only health probe passed and permits one independent attempt 3.
 
-## Current terminal checkpoint
+## Current operational checkpoint
 
 ```text
-PILOT_38_ATTEMPT_2=FAILED
-failure_layer=Gemini API
-failure_code=429 RESOURCE_EXHAUSTED
-completed_rows=0/5
-warmup_rows=1
-blocker=HUMAN_BLOCKER
+GEMINI_38_HEALTH_PROBE_AFTER_ATTEMPT_2=PASS
+model=gemini-3.8-flash
+executed=false
+project=a3-chia-hack26ath-7706
+location=global
+historical_attempt_1=FROZEN_PARTIAL_4_OF_5
+historical_attempt_2=FROZEN_FAILED_0_OF_5
+pilot_attempt_3=NOT_SUBMITTED
+next_action=submit_one_isolated_attempt_3
 ```
+
+The new health-probe record, full log, and SHA256 manifest are frozen on the VM and Google Drive with matching hashes; see `docs/experiments/pilot-38-attempt-3-health-probe-checkpoint.md`. This resolves the active capacity gate operationally. It does not alter either historical pilot attempt or authorize H1 main.
 
 Attempt 2 used independent filenames and bounded API-only retries. Its warm-up passed, then U0 proposal generation exhausted three retries after repeated HTTP 429 responses. No comparative or H1 job ran. Evidence is frozen on the VM and Drive with matching hashes; see `docs/experiments/pilot-38-attempt-2-checkpoint.md`.
 

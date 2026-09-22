@@ -1,10 +1,10 @@
-blocker=HUMAN_BLOCKER
+blocker=RESOLVED_BY_HEALTH_PROBE
+resolved_utc=2026-09-22T01:55:14Z
 stage=PILOT_38
-attempt=PILOT_38_ATTEMPT_2
-ray_job_id=raysubmit_b6mbiNRazgcRB7PR
-failure_layer=Gemini API
-failure_code=429 RESOURCE_EXHAUSTED
-completed_rows=0/5
-warmup_rows=1
-reason=Gemini 3.8 API remained capacity-blocked after three bounded transient retries; user or service-side quota/capacity intervention is required before another pilot attempt.
-next_action=Resolve Gemini 3.8 Vertex AI quota/capacity, then run a fresh health probe before any new complete pilot attempt.
+prior_attempt=PILOT_38_ATTEMPT_2
+prior_ray_job_id=raysubmit_b6mbiNRazgcRB7PR
+prior_failure_layer=Gemini API
+prior_failure_code=429 RESOURCE_EXHAUSTED
+resolution_evidence=docs/experiments/pilot-38-attempt-3-health-probe-checkpoint.md
+reason=A new Gemini-only Vertex AI health probe returned a schema-valid Gemini 3.8 Flash proposal with executed=false after the historical attempt-2 capacity failure.
+next_action=Submit one independent PILOT_38_ATTEMPT_3 with fresh output paths; do not combine prior attempts.
