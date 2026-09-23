@@ -29,7 +29,7 @@ ${PYTHON_BIN} -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e external/chia
-python -m pip install -e .
+python -m pip install -e ".[test]"
 
 python - <<'PY'
 from chia.base.ChiaFunction import ChiaFunction, get  # noqa: F401
