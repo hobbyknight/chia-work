@@ -27,6 +27,7 @@ from .council.schemas import (
 from .council.runtime import grant
 from .safety import Decision, SafetyGate
 from .observability import ExecutionLifecycle
+from .runtime_grounding import execution_grounding_context
 
 
 TAKEOVER_LIMITS: dict[str, int | float] = {
@@ -431,7 +432,7 @@ class GateRunner:
             leaf_agent = ADKJsonAgent(L3Template(l3_id))
             leaf = self._call(leaf_agent, _json({"mission": mission.objective, "task": task.model_dump(mode="json"), "role": role.model_dump(mode="json"), "instruction": "Act as the leaf executor. Perform only a harmless metadata-only analysis using the supplied task. Return evidence, with no CHIA or system execution."}), LeafOutput, "task-trace")
             refs = self._write_l3(cycle, l2, task, leaf, l3_id=l3_id)
-            l2_summary = self._call(l2_agent, _json({"mission": mission.objective, "role": role.model_dump(mode="json"), "task": task.model_dump(mode="json"), "l3_artifacts": [ref.model_dump(mode="json") for ref in refs], "instruction": "Synthesize the L3 evidence for your role. Do not select a scientific stage."}), LeaderOutput, "task-trace")
+            l2_summary = self._call(l2_agent, _json({"mission": mission.objective, "role": role.model_dump(mode="json"), "task": task.model_dump(mode="json"), "l3_artifacts": [ref.model_dump(mode="json") for ref in refs], "execution_grounding": execution_grounding_context(cycle.id, self.lifecycle, self.store), "instruction": "Synthesize the L3 evidence for your role. Use execution_grounding for factual statements about runtime execution state; distinguish plans, requests, approval, execution, completion, and failure. Do not select a scientific stage."}), LeaderOutput, "task-trace")
             report_refs = self._write_l2_report(cycle, l2, role, refs, l2_summary)
             l2_reports.extend(report_refs)
             l2_report_models.append(LeaderReport.model_validate(self.store.read_json(report_refs[0])))
@@ -444,7 +445,8 @@ class GateRunner:
                 "mission": mission.objective,
                 "direction": direction.model_dump(mode="json"),
                 "l2_reports": [report.model_dump(mode="json") for report in l2_report_models],
-                "instruction": "Aggregate the L2 reports into a structured synthesis for L0 proposal review. Summarize supplied state and open questions only; do not choose a scientific stage or action.",
+                "execution_grounding": execution_grounding_context(cycle.id, self.lifecycle, self.store),
+                "instruction": "Aggregate the L2 reports into a structured synthesis for L0 proposal review. Use execution_grounding for factual statements about runtime execution state; distinguish plans, requests, approval, execution, completion, and failure. Summarize supplied state and open questions only; do not choose a scientific stage or action.",
             }),
             SynthesisOutput,
             "governance-trace",
@@ -542,7 +544,7 @@ class GateRunner:
                 self._phase = "VERIFIER"
             raise RuntimeError("CHIA execution or verification failed")
         synthesis_agent = ADKJsonAgent(L2Template("l1-synthesis-takeover"))
-        synthesis = self._call(synthesis_agent, _json({"mission": mission.objective, "l2_reports": [report.model_dump(mode="json") for report in l2_report_models], "decision": decision.model_dump(mode="json"), "observation": observation.model_dump(mode="json"), "instruction": "Synthesize the completed cycle and observation. Report open questions; do not select the next scientific stage."}), SynthesisOutput, "governance-trace")
+        synthesis = self._call(synthesis_agent, _json({"mission": mission.objective, "l2_reports": [report.model_dump(mode="json") for report in l2_report_models], "decision": decision.model_dump(mode="json"), "observation": observation.model_dump(mode="json"), "execution_grounding": execution_grounding_context(cycle.id, self.lifecycle, self.store), "instruction": "Synthesize the cycle and supplied observation. Use execution_grounding as authoritative runtime state; distinguish plans, requests, approval, boundary entry, completion, and failure. Report open questions; do not select the next scientific stage."}), SynthesisOutput, "governance-trace")
         synthesis_ref = self._write_l1(cycle, l2_reports, synthesis, observation_ref.id)
         next_output = self._call(l0_agent, _json({"mission": mission.objective, "l1_synthesis": synthesis.model_dump(mode="json"), "decision": decision.model_dump(mode="json"), "observation": observation.model_dump(mode="json"), "instruction": "Read the real observation and synthesize a next direction yourself. Do not execute it. The gate ends after this output."}), NextDirectionOutput, "governance-trace")
         next_direction = Direction(id=ident("next-direction"), cycle_id=f"{cycle.id}-next", creator="l0", created_at=utc_now(), parent_id=observation.id, objective=next_output.objective, requested_roles=next_output.requested_roles, next_direction=next_output.next_direction, lineage_refs=[observation_ref.id, synthesis_ref.id])

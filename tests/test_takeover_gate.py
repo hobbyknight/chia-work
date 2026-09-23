@@ -247,6 +247,12 @@ def test_l1_preproposal_synthesis_and_proposal_state_grounding(tmp_path, monkeyp
     assert result["status"] == "STOP_NO_MODEL_EXECUTION_REQUEST"
     names = [output_type.__name__ for output_type, _ in calls]
     assert names.index("SynthesisOutput") < names.index("ProposalOutput")
+    synthesis_payloads = [payload for output_type, payload in calls if output_type in (takeover_gate_module.LeaderOutput, takeover_gate_module.SynthesisOutput)]
+    assert len(synthesis_payloads) == 3
+    assert all("execution_grounding" in payload for payload in synthesis_payloads)
+    assert all(payload["execution_grounding"]["snapshot"]["execution_boundary_entries"] == 0 for payload in synthesis_payloads)
+    assert all(payload["execution_grounding"]["snapshot"]["execution_observation_present"] is False for payload in synthesis_payloads)
+    assert all("does not authorize or deny actions" in payload["execution_grounding"]["instruction"] and "decide whether to propose/request an action" in payload["execution_grounding"]["instruction"] for payload in synthesis_payloads)
     proposal_input = next(payload for output_type, payload in calls if output_type is takeover_gate_module.ProposalOutput)
     assert proposal_input["l1_synthesis"]["state_summary"] == "L1 aggregate"
     assert proposal_input["l1_synthesis_artifact"]["path"].endswith("l1/pre-proposal-state.json")
