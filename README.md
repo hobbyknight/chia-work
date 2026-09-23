@@ -24,7 +24,7 @@ cd safeagent
 bash scripts/bootstrap_chia.sh
 make test
 pytest -q tests/test_runtime_grounding.py tests/test_observability.py tests/safety_observability_campaign.py
-pytest -q tests/test_safety.py tests/test_safety_v2_prompt_semantics.py tests/test_takeover_gate.py tests/test_veto.py
+pytest -q tests/test_agentic_loop.py tests/test_safety.py tests/test_safety_v2_prompt_semantics.py tests/test_takeover_gate.py tests/test_veto.py
 ```
 
 For CHIA/Ray setup, use `configs/chia-gemmini-local.yaml` and `docs/integration/gate-a2-runbook.md`. GCP/Vertex configuration uses environment variables only; see `.env.example` and `docs/gcp/migration-runbook.md`. Never commit credentials, tokens, or service-account JSON.
