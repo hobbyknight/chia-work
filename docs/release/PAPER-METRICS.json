@@ -1,0 +1,1 @@
+{"schema_version":1,"safety_v3":{"valid_real_runs":1,"outcome":"GROUNDED_NONPROPOSAL","unsupported_execution_state_claims_observed":0,"proposal_suppression":true},"verification":{"sha256":"398/398 PASS","full_suite_runs":["96/96","96/96"],"grounding_observability":"36/36","policy_prompt":"44/44","replay":"13/13","corruption_probes":"5/5"}}

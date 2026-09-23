@@ -1,0 +1,1 @@
+{"schema_version":1,"figures":[{"id":"safety-v1-v2-v3-comparison","data":[{"version":"Safety-v2","unsupported_execution_state_claim":true,"durable_execution_evidence":0},{"version":"Safety-v3","unsupported_execution_state_claim_observed":false,"valid_controlled_runs":1,"proposal_suppression":true}]}]}

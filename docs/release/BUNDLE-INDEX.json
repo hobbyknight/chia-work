@@ -1,0 +1,1 @@
+{"schema_version":1,"bundles":[{"id":"20260923T094000Z-safety-v3-closeout","kind":"immutable closeout","sha256_expected":"398/398 PASS"},{"id":"20260923T101417Z-colab-shutdown-handoff","kind":"immutable handoff"},{"id":"final-release-closeout","kind":"release closeout","sha256_expected":"all files verified"}]}

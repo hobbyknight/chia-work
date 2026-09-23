@@ -1,0 +1,1 @@
+{"schema_version":1,"baseline":{"branch":"main","head":"76299a0a194d3a44d2e1dbc8128c721dde2f6270"},"safety_v3":{"branch":"codex/safety-v3-runtime-grounding-20260923T085000Z","head":"ffb54d3d33e35849cb1829902c48d7db65470dde","commits":["0a666a0","ffb54d3"]},"final_release":{"branch":"codex/final-release-20260923T162700Z","head":"recorded in final closeout"}}
