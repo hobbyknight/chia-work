@@ -104,6 +104,11 @@ def run_agentic_task(
             "executed": record["executed"],
             "verification": record["verification"],
             "tool_result": record["tool_result"],
+            # Keep per-attempt observability alongside the attempt history; the
+            # final run record alone cannot describe earlier retries.
+            "run_id": record.get("run_id"),
+            "execution_counters": record.get("execution_counters"),
+            "intervention_snapshot": record.get("intervention_snapshot"),
             "action_wall_time_seconds": record["action_wall_time_seconds"],
             "executor_wall_time_seconds": record["executor_wall_time_seconds"],
             "agent_wall_time_seconds": proposal_elapsed,

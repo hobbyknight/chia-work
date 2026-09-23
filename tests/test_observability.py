@@ -483,3 +483,23 @@ def test_lifecycle_append_failure_preserves_preexisting_gate_status(tmp_path, mo
     assert result["execution_counters"]["execution_boundary_entries"] == 0
     assert result["lifecycle_observability_errors"]
     assert "synthetic append fault" in result["lifecycle_persistence_error"]
+
+
+def test_agentic_loop_attempt_history_keeps_per_attempt_observability():
+    from chia_work.agentic_loop import run_agentic_task
+
+    class MockExecutor:
+        mocked = True
+        def execute(self, action):
+            return {"backend": "mock", "status": "success", "exit_code": 0, "verified": True}
+
+    result = run_agentic_task(
+        "synthetic task", variant="S2", task_id="attempt-counter-test",
+        executor=MockExecutor(),
+        initial_action=TypedAction(ActionKind.BUILD, "demo", {"command": "build"}),
+    )
+    attempt = result.attempts[0]
+    final_record = result.final.record
+    assert attempt["run_id"] == final_record["run_id"]
+    assert attempt["execution_counters"] == final_record["execution_counters"]
+    assert attempt["intervention_snapshot"] == final_record["intervention_snapshot"]
