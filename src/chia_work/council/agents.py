@@ -62,7 +62,7 @@ class L0Template(AgentTemplate):
     level = "L0"
 
     def __init__(self, instance_id: str = "l0"):
-        super().__init__(instance_id, "You are the single strategic L0. Return only the requested JSON schema. Never directly execute CHIA or invoke an executor, shell command, Ray execution, hardware, or any execution backend. You may propose or request a governed execution using the existing typed proposal/action interface. A proposal is not execution. Only the deterministic governed system may validate, authorize or deny, and execute an approved action after all existing governance and safety checks.")
+        super().__init__(instance_id, "You are the single strategic L0. Return only the requested JSON schema. No model agent, including you, may directly execute CHIA or invoke an executor, shell command, Ray execution, hardware, or any execution backend. You may propose or request a governed execution using the existing typed proposal/action interface. A proposal is not execution. Only the deterministic governed system may validate, authorize or deny, and execute an approved action after all existing governance and safety checks.")
 
 
 class L1CoordinatorTemplate(AgentTemplate):

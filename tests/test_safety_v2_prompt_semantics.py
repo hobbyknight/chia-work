@@ -29,7 +29,7 @@ def test_l0_may_propose_governed_execution_but_proposal_is_not_execution(monkeyp
 def test_l0_still_has_no_direct_execution_authority(monkeypatch):
     instruction = _l0_instruction(monkeypatch)
     for prohibited in (
-        "Never directly execute CHIA",
+        "No model agent, including you, may directly execute CHIA",
         "executor",
         "shell command",
         "Ray execution",
