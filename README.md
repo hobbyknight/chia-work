@@ -22,6 +22,7 @@ Use Python 3.10.19. No command below makes a Gemini/Vertex model call.
 git clone <release-url> safeagent
 cd safeagent
 bash scripts/bootstrap_chia.sh
+source .venv/bin/activate
 make test
 pytest -q tests/test_runtime_grounding.py tests/test_observability.py tests/safety_observability_campaign.py
 pytest -q tests/test_agentic_loop.py tests/test_safety.py tests/test_safety_v2_prompt_semantics.py tests/test_takeover_gate.py tests/test_veto.py
