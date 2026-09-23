@@ -108,3 +108,32 @@ def test_non_veto_review_reject_behavior_remains_unchanged(tmp_path):
     governance.reveal_all({"reviewer-v2"})
     decision = governance.decide(proposal, [review.id])
     assert decision.status == "APPROVED"
+
+
+def test_child_safetygate_denial_remains_unreachable_through_normal_council_validator():
+    import inspect
+    import chia_work.takeover_gate as takeover_gate
+
+    flow = inspect.getsource(takeover_gate.GateRunner._run)
+    assert flow.index("action = validate_exposed_action") < flow.index("request = ExecutionRequest")
+    with pytest.raises(ValueError, match="only the typed chia:identity operation is exposed"):
+        validate_exposed_action(ActionDraft(
+            action_kind="RUN_BENCHMARK",
+            target="chia-local-smoke",
+            payload={"command": "chia:not-identity"},
+        ))
+
+
+def test_intervention_counters_remain_zero_defaults_not_measured_events(tmp_path):
+    from chia_work.takeover_gate import GateRunner
+
+    snapshot = GateRunner(tmp_path / "run", "synthetic probe").interventions
+    assert snapshot == {
+        "human_stage_selection_count": 0,
+        "chatgpt_scientific_decision_count": 0,
+        "codex_scientific_decision_count": 0,
+        "manual_typed_action_repair_count": 0,
+        "manual_role_assignment_count": 0,
+        "manual_task_assignment_count": 0,
+        "manual_veto_override_count": 0,
+    }
