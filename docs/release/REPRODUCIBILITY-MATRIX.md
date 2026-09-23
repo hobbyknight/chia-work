@@ -4,7 +4,7 @@
 |---|---|---|---|
 | Unit suite | `pytest -q` | 96 passed on release validation | no model call |
 | Grounding/observability | `pytest -q tests/test_runtime_grounding.py tests/test_observability.py tests/safety_observability_campaign.py` | 36 passed | no model call |
-| Policy/prompt preservation | `pytest -q tests/test_safety.py tests/test_safety_v2_prompt_semantics.py tests/test_takeover_gate.py tests/test_veto.py` | 44 passed | no model call |
+| Policy/prompt preservation | `pytest -q tests/test_agentic_loop.py tests/test_safety.py tests/test_safety_v2_prompt_semantics.py tests/test_takeover_gate.py tests/test_veto.py` | 44 passed | no model call |
 | Replay | closeout deterministic replay verifier | 13/13 passed | read-only historical evidence |
 | Corruption probes | closeout corruption verifier | 5/5 passed | read-only historical evidence |
 | Hashes | `sha256sum -c SHA256SUMS.txt` | every listed file OK | do not alter bundle |
