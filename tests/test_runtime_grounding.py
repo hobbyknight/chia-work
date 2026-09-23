@@ -56,7 +56,7 @@ def test_boundary_without_completion_is_not_completed(tmp_path):
     _, life, store = _state(tmp_path)
     _write(store, "cycle-a", "request", "REQUESTED")
     life.append("execution_request_created", phase="REQUEST", status="REQUESTED", cycle_id="cycle-a", request_id="cycle-a:request")
-    life.append("execution_boundary_entered", phase="EXECUTION", status="ENTERED", cycle_id="cycle-a", request_id="cycle-a:request")
+    life.append("execution_boundary_entered", phase="CHIA_EXECUTOR", status="ENTERED", execution_request_id="cycle-a:request")
     snapshot = build_execution_grounding("cycle-a", life, store)
     assert snapshot["execution_boundary_entries"] == 1
     assert snapshot["execution_completions"] == 0
@@ -69,10 +69,11 @@ def test_success_requires_observation_and_completion_event(tmp_path):
     _write(store, "cycle-a", "observation", "EXECUTED")
     for event, phase, status in [
         ("execution_request_created", "REQUEST", "REQUESTED"),
-        ("execution_boundary_entered", "EXECUTION", "ENTERED"),
-        ("execution_completed", "EXECUTION", "COMPLETED"),
+        ("execution_boundary_entered", "CHIA_EXECUTOR", "ENTERED"),
+        ("execution_completed", "CHIA_EXECUTOR", "COMPLETED"),
     ]:
-        life.append(event, phase=phase, status=status, cycle_id="cycle-a", request_id="cycle-a:request")
+        fields = {"cycle_id": "cycle-a", "request_id": "cycle-a:request"} if event == "execution_request_created" else {"execution_request_id": "cycle-a:request"}
+        life.append(event, phase=phase, status=status, **fields)
     snapshot = build_execution_grounding("cycle-a", life, store)
     assert snapshot["execution_observation"]["verified"] is True
     assert snapshot["execution_observation"]["status"] == "EXECUTED"
@@ -85,8 +86,8 @@ def test_failure_with_observation_is_failed_not_completed(tmp_path):
     _write(store, "cycle-a", "request", "REQUESTED")
     _write(store, "cycle-a", "observation", "REJECTED")
     life.append("execution_request_created", phase="REQUEST", status="REQUESTED", cycle_id="cycle-a", request_id="cycle-a:request")
-    life.append("execution_boundary_entered", phase="EXECUTION", status="ENTERED", cycle_id="cycle-a", request_id="cycle-a:request")
-    life.append("execution_failed", phase="EXECUTION", status="FAILED", cycle_id="cycle-a", request_id="cycle-a:request")
+    life.append("execution_boundary_entered", phase="CHIA_EXECUTOR", status="ENTERED", execution_request_id="cycle-a:request")
+    life.append("execution_failed", phase="CHIA_EXECUTOR", status="FAILED", execution_request_id="cycle-a:request")
     snapshot = build_execution_grounding("cycle-a", life, store)
     assert snapshot["execution_failures"] == 1
     assert snapshot["execution_state"] == "FAILED"

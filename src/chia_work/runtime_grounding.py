@@ -106,7 +106,12 @@ def build_execution_grounding(cycle_id: str, lifecycle: ExecutionLifecycle, stor
                 decision["status"] = "INVALID_JSON"
         decisions.append(decision)
     cycle_events = [event for event in events if event.get("cycle_id") == cycle_id]
-    request_ids = {event.get("request_id") for event in cycle_events if event.get("request_id")}
+    request_ids = {
+        request_id
+        for event in cycle_events
+        for request_id in (event.get("request_id"), event.get("execution_request_id"))
+        if request_id
+    }
     # Event writers may omit cycle_id after dispatch. Correlate such events only
     # through a request ID proven by this cycle's request artifact/lifecycle event.
     if request.get("id"):
@@ -120,7 +125,10 @@ def build_execution_grounding(cycle_id: str, lifecycle: ExecutionLifecycle, stor
         cycle_counters[key] = sum(
             event["event_type"] == event_type and (
                 event.get("cycle_id") == cycle_id or
-                (event.get("request_id") is not None and event.get("request_id") in request_ids)
+                (
+                    event.get("request_id") in request_ids
+                    or event.get("execution_request_id") in request_ids
+                )
             )
             for event in events
         )
