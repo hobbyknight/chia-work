@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from dataclasses import dataclass
 from importlib import metadata
 from typing import Any
 
 from .actions import TypedAction
+from .observability import ExecutionLifecycle
 
 
 UPSTREAM_CHIA_COMMIT = "16c35e92aaaf9511c6453bf94cd5cf589698f4e3"
@@ -86,14 +88,69 @@ class ChiaLocalExecutor:
                 "received_action": payload,
             }
 
-        result = get(chia_identity_worker.chia_remote(action.to_dict()))
+        lifecycle = ExecutionLifecycle.from_environment()
+        lifecycle_errors: list[str] = []
+        boundary_event = None
+
+        def record_event(event_type: str, **fields):
+            nonlocal boundary_event
+            if lifecycle is None:
+                return None
+            try:
+                event = lifecycle.append(event_type, **fields)
+                if event_type == "execution_boundary_entered":
+                    boundary_event = event
+                return event
+            except Exception as exc:
+                lifecycle_errors.append(f"{type(exc).__name__}: {exc}")
+                return None
+
+        record_event(
+            "execution_boundary_entered", phase="CHIA_EXECUTOR", status="ENTERED",
+            execution_request_id=os.environ.get("SAFEAGENT_EXECUTION_REQUEST_ID"),
+            action_sha256=expected_sha,
+        )
+        try:
+            result = get(chia_identity_worker.chia_remote(action.to_dict()))
+        except Exception as exc:
+            record_event(
+                "execution_failed", phase="CHIA_EXECUTOR", status="FAILED",
+                execution_request_id=os.environ.get("SAFEAGENT_EXECUTION_REQUEST_ID"),
+                boundary_event_id=None if boundary_event is None else boundary_event["event_id"],
+                error_type=type(exc).__name__, error_message=str(exc),
+            )
+            # Preserve exception type and behavior while allowing structured callers to count entry.
+            try:
+                exc.execution_boundary_entered = True
+                exc.execution_boundary_event_id = None if boundary_event is None else boundary_event["event_id"]
+            except Exception:
+                pass
+            raise
         result["expected_action_sha256"] = expected_sha
         result["verified"] = result.get("observed_action_sha256") == expected_sha
+        result["execution_boundary_entered"] = True
+        result["execution_boundary_event_id"] = None if boundary_event is None else boundary_event["event_id"]
         result["upstream_chia_commit"] = UPSTREAM_CHIA_COMMIT
         try:
             result["chialoops_version"] = metadata.version("chialoops")
         except metadata.PackageNotFoundError:
             result["chialoops_version"] = "unknown/editable"
+        if result["verified"]:
+            record_event(
+                "execution_completed", phase="CHIA_EXECUTOR", status="COMPLETED",
+                execution_request_id=os.environ.get("SAFEAGENT_EXECUTION_REQUEST_ID"),
+                boundary_event_id=None if boundary_event is None else boundary_event["event_id"],
+                action_sha256=expected_sha,
+            )
+        else:
+            record_event(
+                "execution_failed", phase="VERIFIER", status="FAILED",
+                execution_request_id=os.environ.get("SAFEAGENT_EXECUTION_REQUEST_ID"),
+                boundary_event_id=None if boundary_event is None else boundary_event["event_id"],
+                error_type="VerificationMismatch",
+            )
+        if lifecycle_errors:
+            result["execution_lifecycle_errors"] = lifecycle_errors
         return result
 
 

@@ -7,6 +7,7 @@ import sys
 
 from chia_work.actions import ActionKind, TypedAction
 from chia_work.chia_adapter import execute_real_action
+from chia_work.observability import ExecutionLifecycle
 from chia_work.safety import Decision, SafetyGate
 from chia_work.bridge.council_chia_bridge import BridgeValidationError, validate_request
 
@@ -21,7 +22,23 @@ def main() -> int:
         typed = TypedAction(ActionKind(raw["action_kind"]), raw["target"], dict(raw.get("payload", {})))
         decision = SafetyGate().evaluate(typed)
         if decision.decision != Decision.ALLOW:
-            print(json.dumps({"status": "REJECTED", "backend": "safety-gate", "safety_decision": decision.decision.value, "reason": decision.reason, "hardware_executed": False}, sort_keys=True))
+            lifecycle = ExecutionLifecycle.from_environment()
+            lifecycle_error = None
+            if lifecycle is not None:
+                request = payload["execution_request"]
+                try:
+                    lifecycle.terminal(
+                        "REJECTED", "SAFETY_GATE", decision.reason,
+                        execution_request_id=request.get("id"),
+                        decision_record_id=payload["decision_record"].get("id"),
+                        action_ref={"target": raw.get("target"), "action_kind": raw.get("action_kind")},
+                    )
+                except Exception as exc:
+                    lifecycle_error = f"{type(exc).__name__}: {exc}"
+            denial = {"status": "REJECTED", "backend": "safety-gate", "safety_decision": decision.decision.value, "reason": decision.reason, "hardware_executed": False}
+            if lifecycle_error is not None:
+                denial["lifecycle_observability_error"] = lifecycle_error
+            print(json.dumps(denial, sort_keys=True))
             return 0
         result = execute_real_action(typed)
         result["status"] = "EXECUTED" if result.get("status") == "success" else "REJECTED"

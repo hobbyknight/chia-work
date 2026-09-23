@@ -26,6 +26,7 @@ from .council.schemas import (
 )
 from .council.runtime import grant
 from .safety import Decision, SafetyGate
+from .observability import ExecutionLifecycle
 
 
 TAKEOVER_LIMITS: dict[str, int | float] = {
@@ -178,6 +179,12 @@ class GateRunner:
         self.model_calls = 0
         self.invocations = 0
         self.started = time.monotonic()
+        self.lifecycle = ExecutionLifecycle(self.run_id, self.root / ".lifecycle-events.jsonl")
+        self._phase = "INITIALIZATION"
+        self._proposal_id: str | None = None
+        self._decision_id: str | None = None
+        self._request_id: str | None = None
+        self._observability_errors: list[str] = []
         (self.root / "traces").mkdir(parents=True, exist_ok=True)
         self.interventions = {
             "human_stage_selection_count": 0,
@@ -188,6 +195,20 @@ class GateRunner:
             "manual_task_assignment_count": 0,
             "manual_veto_override_count": 0,
         }
+
+    def _observe(self, operation, *args, **kwargs):
+        """Best-effort evidence write that never changes the gate decision."""
+        try:
+            return operation(*args, **kwargs)
+        except Exception as exc:
+            self._observability_errors.append(f"{type(exc).__name__}: {exc}")
+            return None
+
+    def _emit_lifecycle(self, event_type: str, **fields):
+        return self._observe(self.lifecycle.append, event_type, **fields)
+
+    def _terminal_lifecycle(self, status: str, phase: str, reason: str, **references):
+        return self._observe(self.lifecycle.terminal, status, phase, reason, **references)
 
     def _check_limits(self) -> None:
         if time.monotonic() - self.started > TAKEOVER_LIMITS["max_wall_time"]:
@@ -286,6 +307,9 @@ class GateRunner:
         chia_python = os.environ.get("CHIA_PYTHON", "/home/devstar7706/chia-work/.venv/bin/python")
         env = os.environ.copy()
         env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
+        env["SAFEAGENT_LIFECYCLE_PATH"] = str(self.lifecycle.stream_path)
+        env["SAFEAGENT_RUN_ID"] = self.run_id
+        env["SAFEAGENT_EXECUTION_REQUEST_ID"] = request.id
         proc = subprocess.run([chia_python, "-m", "chia_work.bridge.takeover_executor"], input=_json(payload), text=True, capture_output=True, timeout=180, env=env, check=False)
         if proc.returncode != 0:
             raise RuntimeError(f"CHIA worker failed: rc={proc.returncode} stderr={proc.stderr[-2000:]}")
@@ -295,12 +319,80 @@ class GateRunner:
             raise RuntimeError(f"CHIA worker returned non-JSON stdout: {proc.stdout[-2000:]}") from exc
 
     def run(self) -> dict[str, Any]:
+        self._emit_lifecycle("run_started", phase="INITIALIZATION", status="STARTED")
+        try:
+            result = self._run()
+        except Exception as exc:
+            try:
+                counts = self.lifecycle.counters()
+            except Exception as lifecycle_exc:
+                self._observability_errors.append(f"{type(lifecycle_exc).__name__}: {lifecycle_exc}")
+                counts = {"execution_boundary_entries": 0}
+            boundary_entered = counts["execution_boundary_entries"] > 0
+            if self._phase == "VERIFIER":
+                terminal_status = "VERIFICATION_FAILED"
+            elif boundary_entered:
+                terminal_status = "EXECUTION_FAILED"
+            else:
+                terminal_status = "REJECTED" if self._phase in {"ACTION_VALIDATION", "EXECUTION_DISPATCH", "SAFETY_GATE"} else "STOPPED"
+            self._terminal_lifecycle(
+                terminal_status,
+                self._phase,
+                f"{type(exc).__name__}: {exc}",
+                exception_type=type(exc).__name__,
+                proposal_id=self._proposal_id,
+                decision_id=self._decision_id,
+                request_id=self._request_id,
+            )
+            try:
+                self.lifecycle.persist(self.store)
+            except Exception:
+                # Evidence persistence is best-effort here; preserve the pre-existing exception.
+                pass
+            raise
+        status = result.get("status", "STOPPED")
+        if status == "TAKEOVER_REJECTED_BY_GEMINI_VETO":
+            terminal_status, phase, reason = "REJECTED", "GOVERNANCE", status
+        elif status == "STOP_NO_MODEL_EXECUTION_REQUEST":
+            terminal_status, phase, reason = "STOPPED", "PROPOSAL", status
+        elif status == "TAKEOVER_GATE_PASS":
+            terminal_status, phase, reason = "COMPLETED", "COMPLETE", status
+        else:
+            terminal_status, phase, reason = status, self._phase, status
+        self._terminal_lifecycle(
+            terminal_status, phase, reason,
+            proposal_id=result.get("proposal_id") or self._proposal_id,
+            decision_id=result.get("decision_id") or self._decision_id,
+            request_id=result.get("request_id") or self._request_id,
+        )
+        try:
+            refs = self.lifecycle.persist(self.store)
+            persistence_error = None
+        except Exception as exc:
+            # Instrumentation storage failure must not rewrite an existing gate status.
+            refs = []
+            persistence_error = f"{type(exc).__name__}: {exc}"
+        try:
+            result["execution_counters"] = self.lifecycle.counters()
+        except Exception as exc:
+            result["execution_counters"] = {"execution_requests_created": 0, "execution_boundary_entries": 0, "execution_completions": 0, "execution_failures": 0}
+            self._observability_errors.append(f"{type(exc).__name__}: {exc}")
+        result["lifecycle_artifact_refs"] = [ref.id for ref in refs]
+        if persistence_error is not None:
+            result["lifecycle_persistence_error"] = persistence_error
+        if self._observability_errors:
+            result["lifecycle_observability_errors"] = list(self._observability_errors)
+        return result
+
+    def _run(self) -> dict[str, Any]:
+        self._phase = "HIERARCHY"
         mission_id = ident("mission")
         cycle_id = ident("cycle")
         mission = Mission(id=mission_id, cycle_id=cycle_id, creator="user", created_at=utc_now(), run_id=self.run_id, objective=self.mission_objective)
         cycle = Cycle(id=cycle_id, cycle_id=cycle_id, creator="l1-coordinator", created_at=utc_now(), parent_id=mission.id, run_id=self.run_id, index=0, limits=TAKEOVER_LIMITS)
         mission_ref = self.store.write_json("mission/mission.json", mission, artifact_id=mission.id, cycle_id=cycle.id, creator=mission.creator)
         self.store.write_json(f"cycles/{cycle.id}/cycle.json", cycle, artifact_id=cycle.id, cycle_id=cycle.id, creator=cycle.creator, parent_id=mission.id, lineage_refs=[mission.id])
+        self._emit_lifecycle("cycle_started", phase="HIERARCHY", status="OPEN", cycle_id=cycle.id, mission_id=mission.id)
         self.store.write_json("mission/action-surface.json", safe_action_surface(), artifact_id=ident("action-surface"), cycle_id=cycle.id, creator="l1-coordinator", parent_id=mission.id, lineage_refs=[mission.id])
         self._trace("role-trace", {"event": "autonomous_window_start", "mission_id": mission.id, "cycle_id": cycle.id, "limits": TAKEOVER_LIMITS})
 
@@ -363,6 +455,7 @@ class GateRunner:
             "execution_attempted": False,
             "execution_observation_present": False,
         }
+        self._phase = "PROPOSAL"
         proposal_output = self._call(
             l0_agent,
             _json({
@@ -381,8 +474,10 @@ class GateRunner:
         )
         proposal = Proposal(id=ident("proposal"), cycle_id=cycle.id, creator="l0", created_at=utc_now(), parent_id=direction.id, title=proposal_output.title, payload={"rationale": proposal_output.rationale, "request_execution": proposal_output.request_execution, "typed_action": None if proposal_output.typed_action is None else proposal_output.typed_action.model_dump(mode="json")}, proposer_id="l0")
         self.store.write_json(f"cycles/{cycle.id}/governance/proposal.json", proposal, artifact_id=proposal.id, cycle_id=cycle.id, creator="l0", parent_id=direction.id, lineage_refs=[direction.id, preproposal_ref.id] + [ref.id for ref in l2_reports])
+        self._proposal_id = proposal.id
         self._trace("governance-trace", {"event": "proposal", "proposal": proposal.model_dump(mode="json")})
 
+        self._phase = "GOVERNANCE"
         governance = Governance(self.store, cycle.id)
         review_results: list[tuple[IndependentReview, ReviewOutput]] = []
         shared = {"mission": mission.objective, "proposal": proposal.model_dump(mode="json"), "shared_facts": {"action_surface": safe_action_surface(), "artifact_refs": [ref.id for ref in l2_reports]}}
@@ -407,24 +502,44 @@ class GateRunner:
                 self.store.write_json(f"cycles/{cycle.id}/governance/veto-{veto.id}.json", veto, artifact_id=veto.id, cycle_id=cycle.id, creator=veto.vetoer_id, parent_id=proposal.id, lineage_refs=[review.id])
                 self._trace("governance-trace", {"event": "veto", "veto": veto.model_dump(mode="json")})
         decision = governance.decide(proposal, review_refs)
+        self._decision_id = decision.id
         self.store.write_json(f"cycles/{cycle.id}/decisions/{decision.id}.json", decision, artifact_id=decision.id, cycle_id=cycle.id, creator=decision.creator, parent_id=proposal.id, lineage_refs=review_refs + decision.veto_refs)
         self._trace("governance-trace", {"event": "decision", "decision": decision.model_dump(mode="json")})
         if decision.status != "APPROVED":
             return {"status": "TAKEOVER_REJECTED_BY_GEMINI_VETO", "decision_id": decision.id, "model_calls": self.model_calls, "interventions": self.interventions}
         if not proposal_output.request_execution or proposal_output.typed_action is None:
             return {"status": "STOP_NO_MODEL_EXECUTION_REQUEST", "proposal_id": proposal.id, "decision_id": decision.id, "model_calls": self.model_calls, "interventions": self.interventions}
+        self._phase = "ACTION_VALIDATION"
         action = validate_exposed_action(proposal_output.typed_action)
         capability = grant(cycle.id, "l0", ["REQUEST_EXECUTION"], "l1-governance")
         self.store.write_json(f"cycles/{cycle.id}/execution/capability-grant.json", capability, artifact_id=capability.id, cycle_id=cycle.id, creator=capability.granted_by, parent_id=decision.id, lineage_refs=[decision.id])
         request = ExecutionRequest(id=ident("execution-request"), cycle_id=cycle.id, creator="l0", created_at=utc_now(), parent_id=decision.id, decision_record_id=decision.id, typed_action={"schema_version": 1, "action_kind": action.kind.value, "target": action.target, "payload": action.params}, requested_by="l0", capability_grant_id=capability.id, lineage_refs=[decision.id, proposal.id])
         request_ref = self.store.write_json(f"cycles/{cycle.id}/execution/request.json", request, artifact_id=request.id, cycle_id=cycle.id, creator=request.creator, parent_id=decision.id, lineage_refs=[decision.id, proposal.id])
+        self._request_id = request.id
+        self._emit_lifecycle(
+            "execution_request_created", phase="REQUEST", status="REQUESTED",
+            cycle_id=cycle.id, proposal_id=proposal.id, decision_id=decision.id,
+            request_id=request.id, action_kind=action.kind.value, target=action.target,
+        )
         self._trace("execution-trace", {"event": "request", "request": request.model_dump(mode="json")})
+        self._phase = "EXECUTION_DISPATCH"
         result = self._execute_once(request, decision, capability)
         status = "EXECUTED" if result.get("status") == "EXECUTED" else "REJECTED"
+        if result.get("backend") == "safety-gate":
+            self._phase = "SAFETY_GATE"
+            self._terminal_lifecycle(
+                "REJECTED", "SAFETY_GATE", str(result.get("reason", "SafetyGate denied action")),
+                cycle_id=cycle.id, proposal_id=proposal.id, decision_id=decision.id,
+                request_id=request.id, action_ref=action.target,
+            )
+        elif status != "EXECUTED":
+            self._phase = "EXECUTION_BACKEND"
         observation = ExecutionObservation(id=ident("execution-observation"), cycle_id=cycle.id, creator="chia-bridge", created_at=utc_now(), parent_id=request.id, execution_request_id=request.id, status=status, observation=result, hardware_executed=bool(result.get("hardware_executed", False)), lineage_refs=[request.id, decision.id])
         observation_ref = self.store.write_json(f"cycles/{cycle.id}/execution/observation.json", observation, artifact_id=observation.id, cycle_id=cycle.id, creator=observation.creator, parent_id=request.id, lineage_refs=[request.id, decision.id])
         self._trace("execution-trace", {"event": "observation", "observation": observation.model_dump(mode="json")})
         if status != "EXECUTED" or not result.get("verified", True):
+            if status == "EXECUTED" and not result.get("verified", True):
+                self._phase = "VERIFIER"
             raise RuntimeError("CHIA execution or verification failed")
         synthesis_agent = ADKJsonAgent(L2Template("l1-synthesis-takeover"))
         synthesis = self._call(synthesis_agent, _json({"mission": mission.objective, "l2_reports": [report.model_dump(mode="json") for report in l2_report_models], "decision": decision.model_dump(mode="json"), "observation": observation.model_dump(mode="json"), "instruction": "Synthesize the completed cycle and observation. Report open questions; do not select the next scientific stage."}), SynthesisOutput, "governance-trace")

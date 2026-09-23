@@ -69,6 +69,8 @@ def run_action(
                 "verified": False,
                 "error_type": type(exc).__name__,
                 "error_message": str(exc),
+                "execution_boundary_entered": bool(getattr(exc, "execution_boundary_entered", False)),
+                "execution_boundary_event_id": getattr(exc, "execution_boundary_event_id", None),
             }
         finally:
             executor_elapsed = time.perf_counter() - executor_started
@@ -106,6 +108,23 @@ def run_action(
         "safety_gate_wall_time_seconds": safety_gate_elapsed,
         "executor_wall_time_seconds": executor_elapsed,
         "tool_call_count": 1 if tool_result is not None else 0,
+        "execution_counters": {
+            # Generic typed-action runs do not create the Council ExecutionRequest artifact.
+            "execution_requests_created": 0,
+            "execution_boundary_entries": int(bool(tool_result and tool_result.get("execution_boundary_entered", False))),
+            "execution_completions": int(bool(tool_result and tool_result.get("execution_boundary_entered", False) and tool_result.get("status") == "success" and tool_result.get("verified", True))),
+            "execution_failures": int(bool(tool_result and tool_result.get("execution_boundary_entered", False) and (tool_result.get("status") != "success" or not tool_result.get("verified", True))) or (tool_result is not None and tool_result.get("status") == "error")),
+        },
+        "intervention_snapshot": {
+            "human_scientific_intervention_count": 0,
+            "chatgpt_scientific_intervention_count": 0,
+            "codex_scientific_intervention_count": 0,
+            "manual_gemini_output_repair_count": 0,
+            "manual_role_assignment_count": 0,
+            "manual_task_assignment_count": 0,
+            "manual_veto_override_count": 0,
+            "measurement_source": "explicit default zero; no production increment site exists",
+        },
         "mocked": bool(getattr(executor, "mocked", True)),
         # Never estimate monetary cost inside the execution harness.
         "api_cost_usd": None,
