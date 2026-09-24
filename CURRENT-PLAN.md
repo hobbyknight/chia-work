@@ -1,5 +1,7 @@
 # CURRENT PLAN
 
+> **Historical status record.** This execution-time plan is retained for provenance and is superseded for reviewer navigation by `README.md` and the packaged indexes in `docs/release/`. Do not treat its unchecked items as current publication instructions.
+
 Updated: 2026-09-21 (UTC)
 
 ## Objective

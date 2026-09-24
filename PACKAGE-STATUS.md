@@ -1,5 +1,7 @@
 # PACKAGE STATUS
 
+> **Historical status record.** This early package snapshot is retained for provenance and is superseded for reviewer navigation by `README.md` and the packaged indexes in `docs/release/`. Its status labels are not the final release status.
+
 Snapshot: 2026-09-18 after Gate A.1 proof and Gate A.2 preflight.
 
 Legend:

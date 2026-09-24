@@ -1,5 +1,7 @@
 # Codex handoff — control-plane only
 
+> **Historical status record.** This execution-time handoff is retained for provenance and is superseded for reviewer navigation by `README.md` and the packaged indexes in `docs/release/`. Do not follow its operational next steps during release reproduction.
+
 ## Role boundary
 
 Codex is only the control-plane operator for this repository. It must not invent hardware/software actions, rewrite experiment prompts, alter SafetyGate policy, modify workloads, rebuild Chipyard/Gemmini, or substitute its own reasoning for the experiment agent.

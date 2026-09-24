@@ -1,5 +1,7 @@
 # CHECKPOINT
 
+> **Historical status record.** This execution-time checkpoint is retained for provenance and is superseded for reviewer navigation by `README.md` and the packaged indexes in `docs/release/`. Do not follow its operational next steps during release reproduction.
+
 Snapshot: 2026-09-22 — real CHIA/Gemmini/Verilator execution is proven. Gemini 3.8 pilot attempt 3 is a complete, frozen, independent U0–S4 dataset; frozen H1 main experiments may begin.
 
 ## Current operational checkpoint

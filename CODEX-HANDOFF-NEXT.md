@@ -1,5 +1,7 @@
 # Codex handoff — frozen state for Gemini-owned global loop
 
+> **Historical status record.** This execution-time handoff is retained for provenance and is superseded for reviewer navigation by `README.md` and the packaged indexes in `docs/release/`. Do not follow its operational next steps during release reproduction.
+
 ## A. Project objective
 
 Gemini 3.8 Flash is to become the sole agent and global orchestrator. Human, ChatGPT, and Codex are supervisors only.

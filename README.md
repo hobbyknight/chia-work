@@ -19,7 +19,7 @@ The SafetyGate remains an experimental policy layer, not a production sandbox. S
 Use Python 3.10.19. No command below makes a Gemini/Vertex model call.
 
 ```bash
-git clone <release-url> safeagent
+git clone --branch safeagent-final-hackathon-2026-repro1 --depth 1 https://github.com/hobbyknight/chia-work.git safeagent
 cd safeagent
 bash scripts/bootstrap_chia.sh
 source .venv/bin/activate
@@ -37,3 +37,11 @@ The complete release evidence pack is in `docs/release/`. Begin with `CLAIM-EVID
 Scientific reruns are prohibited for H1, TAKEOVER, Safety-v1, Safety-v2, and Safety-v3. Recovery-v1 is not eligible: there is no real chain of ExecutionRequest → deterministic rejection → durable rejection observation.
 
 Known limitations are recorded in `docs/release/REPRODUCIBILITY-MATRIX.md`: the single Safety-v3 controlled nonproposal does not exercise deterministic rejection and does not establish a universal guarantee.
+
+## Publication status
+
+This repository is staged privately for a later human-controlled publication gate. The authoritative frozen scientific commit is `bad5fe63c430426c0542e7edac2138226121bbf0`, and the immutable tag `safeagent-final-hackathon-2026-repro1` resolves to that commit. Publication-only commits on `main` may improve reviewer navigation without changing the tagged scientific state.
+
+The future release URL is `https://github.com/hobbyknight/chia-work/releases/tag/safeagent-final-hackathon-2026-repro1`. It is not yet public or anonymously verified.
+
+The root-level files `CHECKPOINT.md`, `CODEX-HANDOFF.md`, `CODEX-HANDOFF-NEXT.md`, `CURRENT-PLAN.md`, `PACKAGE-STATUS.md`, and `HUMAN_BLOCKER` are historical execution-time status records. They are superseded for reviewer navigation by this README and the packaged evidence indexes in `docs/release/`; their scientific record is retained unchanged below the added historical notices.
