@@ -38,6 +38,12 @@ Scientific reruns are prohibited for H1, TAKEOVER, Safety-v1, Safety-v2, and Saf
 
 Known limitations are recorded in `docs/release/REPRODUCIBILITY-MATRIX.md`: the single Safety-v3 controlled nonproposal does not exercise deterministic rejection and does not establish a universal guarantee.
 
+## License
+
+SafeAgent-original source code and documentation are licensed under the Apache License, Version 2.0, unless otherwise noted. See `LICENSE` and `NOTICE`.
+
+Third-party dependencies, vendored components, upstream projects, generated artifacts, and referenced external materials remain subject to their respective licenses and terms. Nothing in the SafeAgent license relicenses CHIA, Chipyard, Gemmini, Ray, or other third-party software.
+
 ## Publication status
 
 This repository is staged privately for a later human-controlled publication gate. The authoritative frozen scientific commit is `bad5fe63c430426c0542e7edac2138226121bbf0`, and the immutable tag `safeagent-final-hackathon-2026-repro1` resolves to that commit. Publication-only commits on `main` may improve reviewer navigation without changing the tagged scientific state.
