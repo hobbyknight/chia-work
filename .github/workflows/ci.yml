@@ -13,10 +13,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10.19'
-      - name: Install local package
-        run: python -m pip install -e '.[test]'
-      - name: Unit tests
-        run: python -m unittest discover -s tests -v
+      - name: Install deterministic test environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[test]"
+      - name: Frozen-compatible unit validation
+        run: make test
+      - name: Full deterministic pytest validation
+        run: python -m pytest -q
       - name: Validate shell entrypoints
         run: bash -n scripts/bootstrap_chia.sh scripts/preflight_gate_a2_host.sh scripts/run_gate_a2_build.sh
       - name: Smoke test
